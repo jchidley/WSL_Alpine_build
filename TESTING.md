@@ -9,6 +9,8 @@ This document describes approaches for testing the WSL Alpine build scripts from
 - **USE UNIQUE TEST NAMES**: Always use unique distribution names with timestamps (e.g., "alp-test-20240520123045")
 - **CHECK WSL LISTS**: Run `wsl.exe -l -v` before testing to see which distributions already exist
 - **AVOID PRODUCTION SYSTEMS**: Do not test on systems where WSL is used for production work
+- **ADMINISTRATIVE ACCESS**: Some operations require Windows administrative privileges
+- **DISK SPACE**: Ensure at least 1GB of free space for testing
 
 ## Prerequisites
 
@@ -144,6 +146,9 @@ For comprehensive cleanup of test distributions:
   ```bash
   # Check WSL status and interoperability
   wsl.exe --status
+  
+  # Get more detailed information about WSL
+  wsl.exe --version
   ```
 
 - **Windows Path Conversion**:
@@ -158,23 +163,149 @@ For comprehensive cleanup of test distributions:
   ```bash
   # Enable bash debug mode for verbose output
   bash -x ./wsl-alpine-build.sh 2>&1 | tee debug.log
+  
+  # Trace all script execution with line numbers
+  bash -xv ./wsl-alpine-build.sh 2>&1 | tee debug-verbose.log
   ```
 
 - **Permission Issues**:
   ```bash
   # Check & fix permissions on chroot directory
   sudo chown -R $(id -u):$(id -g) "$CHROOT_DIR"
+  
+  # Check if sudo is configured correctly
+  sudo -v
   ```
+
+- **Check Alpine Repository Access**:
+  ```bash
+  # Verify connectivity to Alpine repositories
+  wget -q --spider https://dl-cdn.alpinelinux.org/alpine/edge/main
+  echo $?  # Should return 0 if successful
+  ```
+
+- **Verify WSL Installation Command**:
+  ```bash
+  # Check if wsl.exe --install --from-file is supported
+  wsl.exe --help | grep -- --from-file
+  ```
+
+- **Test Distribution Health**:
+  ```bash
+  # Verify basic functionality of a created distribution
+  wsl.exe -d distribution-name -e ash -c "echo 'Alpine' && cat /etc/alpine-release && apk --version"
+  ```
+
+## Common Issues and Solutions
+
+### Distribution Creation Failures
+
+If the distribution fails to create, check:
+
+1. **WSL Version**: Ensure you have WSL 2 with the `--from-file` option
+   ```bash
+   wsl.exe --version
+   # Should be at least 1.2.5.0 or higher
+   ```
+
+2. **File Permissions**: Ensure the temporary files are accessible
+   ```bash
+   ls -la ~/alpine.wsl.gz
+   # Should show read permissions for your user
+   ```
+
+3. **Windows Admin Rights**: Some operations need Windows admin privileges
+   ```bash
+   # Run PowerShell as administrator and try:
+   wsl.exe --install --from-file "path\to\alpine.wsl.gz"
+   ```
+
+### First Boot Issues
+
+If first boot fails or hangs:
+
+1. **Terminate and Restart**: Sometimes a clean restart helps
+   ```bash
+   wsl.exe -t distribution-name
+   wsl.exe -d distribution-name
+   ```
+
+2. **Check Logs**: Look for any error messages
+   ```bash
+   # In the distribution
+   wsl.exe -d distribution-name -e cat /var/log/messages
+   ```
+
+3. **Manual First Boot Commands**: Try running the OOBE commands manually
+   ```bash
+   wsl.exe -d distribution-name -e ash /etc/oobe.sh
+   ```
+
+## Automated Testing Guide
+
+For continuous integration or regular testing:
+
+```bash
+# Create a test script to run multiple tests in sequence
+#!/usr/bin/env bash
+set -e
+
+# Test with different configurations
+for alpine_version in edge v3.18 v3.17; do
+  echo "Testing Alpine version: $alpine_version"
+  
+  # Create test environment
+  TIMESTAMP=$(date +%Y%m%d%H%M%S)
+  TEST_NAME="alp-test-${TIMESTAMP}"
+  
+  # Create test configuration
+  cat > .env << EOF
+  SUDO=sudo
+  WSL_DISTRIBUTION_NAME=$TEST_NAME
+  CHROOT_DIR="/tmp/$TEST_NAME"
+  ALPINE_VERSION=$alpine_version
+  EOF
+  
+  # Run build and test
+  ./wsl-alpine-build.sh
+  
+  # Verify installation
+  wsl.exe -d "$TEST_NAME" -e cat /etc/alpine-release
+  
+  # Clean up
+  wsl.exe --unregister "$TEST_NAME"
+  sudo rm -rf "/tmp/$TEST_NAME" 2>/dev/null || true
+done
+```
 
 ## After Testing
 
 Always clean up test artifacts when finished:
 
 ```bash
-# Unregister test distribution
+# Run the cleanup script to remove all test distributions
+./wsl-alpine-build-test-cleanup.sh
+
+# Or manually clean up specific distributions
 wsl.exe --unregister alp-test-TIMESTAMP 
 
 # Remove temporary files
 rm -f test.env build.log debug.log
 sudo rm -rf /tmp/alp-test-* 2>/dev/null || true
+
+# Check WSL distribution list to confirm removal
+wsl.exe -l -v
 ```
+
+## Test Matrix
+
+When thoroughly testing the scripts, consider testing these combinations:
+
+| Alpine Version | Package Preset | Systemd | Special Features |
+|----------------|----------------|---------|-----------------|
+| edge           | minimal        | false   | none            |
+| v3.18          | standard       | false   | none            |
+| v3.18          | development    | true    | custom packages |
+| edge           | server         | true    | custom icon     |
+
+This ensures compatibility across different configurations and use cases.

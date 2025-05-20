@@ -162,8 +162,146 @@ This document summarizes improvements that have been implemented in the WSL Alpi
 
 While many improvements have been implemented, here are some ideas for future enhancements:
 
+### User Experience and Configuration
+
 1. **User Account Creation**: Add option to create a regular user during installation
+   ```bash
+   # Example implementation in the script
+   USER_NAME=${USER_NAME:-"alpine"}
+   USER_PASSWORD=${USER_PASSWORD:-""}  # Empty for interactive prompt
+   
+   if [[ -n "$USER_NAME" && "$USER_NAME" != "root" ]]; then
+     # Create user in the chroot environment
+     echo "👤 Creating user account: $USER_NAME..."
+     $SUDO chroot $CHROOT_DIR adduser -D "$USER_NAME"
+     # Set default user in wsl.conf
+     $SUDO sed -i "s/defaultUid = 0/defaultUid = 1000/" $CHROOT_DIR/etc/wsl-distribution.conf
+   fi
+   ```
+
 2. **Custom Icon Support**: Allow specifying a custom icon for the WSL distribution
-3. **Package Presets**: Add predefined package groups for different use cases (e.g., development, server, minimal)
+   ```bash
+   # Example implementation
+   CUSTOM_ICON_PATH=${CUSTOM_ICON_PATH:-""}
+   
+   if [[ -n "$CUSTOM_ICON_PATH" && -f "$CUSTOM_ICON_PATH" ]]; then
+     echo "🖼️ Setting custom distribution icon..."
+     $SUDO cp "$CUSTOM_ICON_PATH" $CHROOT_DIR/usr/lib/wsl/my-icon.ico
+   fi
+   ```
+
+3. **Package Presets**: Add predefined package groups for different use cases
+   ```bash
+   # Example implementation
+   PACKAGE_PRESET=${PACKAGE_PRESET:-"standard"}
+   
+   case $PACKAGE_PRESET in
+     minimal)
+       EDITOR_PACKAGES="nano"
+       TOOL_PACKAGES="wget curl"
+       ;;
+     development)
+       EDITOR_PACKAGES="helix tree-sitter-bash tree-sitter-c tree-sitter-python"
+       TOOL_PACKAGES="fd bat zoxide fzf git gcc python3 make"
+       ;;
+     server)
+       EDITOR_PACKAGES="nano vim"
+       TOOL_PACKAGES="curl wget htop tmux" 
+       EXTRA_PACKAGES="$EXTRA_PACKAGES openssh nginx"
+       ;;
+     *)  # standard (default)
+       # Use the existing configuration
+       ;;
+   esac
+   ```
+
+### System Configuration
+
 4. **Networking Configuration**: More options for configuring network settings
-5. **Shared Directory Configuration**: Configure shared Windows directories in WSL
+   ```bash
+   # Example implementation
+   DNS_SERVERS=${DNS_SERVERS:-""}
+   
+   if [[ -n "$DNS_SERVERS" ]]; then
+     echo "🔌 Configuring custom DNS servers..."
+     echo "nameserver $DNS_SERVERS" | $SUDO tee $CHROOT_DIR/etc/resolv.conf
+   fi
+   ```
+
+5. **Shared Directory Configuration**: Configure shared Windows directories
+   ```bash
+   # Example implementation
+   SHARED_WINDOWS_DIRS=${SHARED_WINDOWS_DIRS:-""}
+   
+   if [[ -n "$SHARED_WINDOWS_DIRS" ]]; then
+     echo "📁 Configuring shared Windows directories..."
+     mkdir -p $CHROOT_DIR/mnt/shared
+     # Add to fstab or wsl.conf automounts
+     echo -e "\n[automount]\noptions = \"metadata,umask=22,fmask=11\"" >> $CHROOT_DIR/etc/wsl.conf
+   fi
+   ```
+
+### Advanced Features
+
+6. **Integration with Windows Terminal**: Automatically configure Windows Terminal profile
+   ```bash
+   # Example implementation
+   CONFIGURE_WINDOWS_TERMINAL=${CONFIGURE_WINDOWS_TERMINAL:-true}
+   
+   if [[ "$CONFIGURE_WINDOWS_TERMINAL" == "true" ]]; then
+     # Enhance terminal profile configuration
+     echo "🖥️ Configuring Windows Terminal integration..."
+     # More detailed profile template
+   fi
+   ```
+
+7. **Development Environment Presets**: Add language-specific development environments
+   ```bash
+   # Example implementation
+   DEV_ENVIRONMENT=${DEV_ENVIRONMENT:-""}
+   
+   case $DEV_ENVIRONMENT in
+     python)
+       echo "🐍 Configuring Python development environment..."
+       EXTRA_PACKAGES="$EXTRA_PACKAGES python3 python3-dev py3-pip py3-virtualenv"
+       ;;
+     rust)
+       echo "🦀 Configuring Rust development environment..."
+       EXTRA_PACKAGES="$EXTRA_PACKAGES rust cargo rustfmt"
+       ;;
+     # Add more environments
+   esac
+   ```
+
+8. **Post-Installation Customization Hooks**: Allow custom scripts to run after installation
+   ```bash
+   # Example implementation
+   POST_INSTALL_SCRIPT=${POST_INSTALL_SCRIPT:-""}
+   
+   if [[ -n "$POST_INSTALL_SCRIPT" && -f "$POST_INSTALL_SCRIPT" ]]; then
+     echo "🔧 Running post-installation customization script..."
+     $SUDO cp "$POST_INSTALL_SCRIPT" $CHROOT_DIR/etc/post-install.sh
+     $SUDO chmod +x $CHROOT_DIR/etc/post-install.sh
+     # Add to first-boot sequence
+   fi
+   ```
+
+9. **Distribution Upgrade Path**: Provide a way to upgrade existing distributions
+   ```bash
+   # New script: upgrade-wsl-alpine.sh
+   # This would update packages and configurations in existing distributions
+   ```
+
+10. **Export/Import Configuration**: Allow saving and loading configurations
+    ```bash
+    # Example implementation
+    if [[ "$1" == "--export-config" ]]; then
+      echo "💾 Exporting current configuration..."
+      # Save current environment to a file
+    fi
+    
+    if [[ "$1" == "--import-config" && -n "$2" && -f "$2" ]]; then
+      echo "📥 Importing configuration from $2..."
+      # Load environment from specified file
+    fi
+    ```
