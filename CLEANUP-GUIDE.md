@@ -14,16 +14,16 @@ sudo ./wsl-alpine-cleanup.sh
 sudo ./wsl-alpine-cleanup.sh alp2
 ```
 
-### 2. Reset Script (`reset-wsl-alpine-build.sh`)
+### 2. Reset Script (`wsl-alpine-reset.sh`)
 Quick cleanup for the default distribution:
 ```bash
-sudo ./reset-wsl-alpine-build.sh
+sudo ./wsl-alpine-reset.sh
 ```
 
-### 3. Test Cleanup (`wsl-alpine-build-test-cleanup.sh`)
+### 3. Test Cleanup (`wsl-alpine-test-cleanup.sh`)
 Remove all test distributions (alp-test-*):
 ```bash
-sudo ./wsl-alpine-build-test-cleanup.sh
+sudo ./wsl-alpine-test-cleanup.sh
 ```
 
 ## What Gets Cleaned
@@ -141,7 +141,7 @@ ps aux | grep -i alpine
 
 1. **Use test distributions** for experiments:
    ```bash
-   ./test-wsl-alpine-build.sh
+   ./wsl-alpine-test.sh
    ```
 
 2. **Document your distributions** - keep track of what you create

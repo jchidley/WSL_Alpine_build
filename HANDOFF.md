@@ -1,20 +1,23 @@
 # Project: WSL Alpine Build
-Updated: 2025-05-28 21:45
+Updated: 2025-05-28 23:00
 
 ## Current State
-Status: Requirement numbering conflict resolved, project ready for testing
-Target: Test fresh Alpine build with automatic PATH configuration
-Latest: Fixed REQ-50 conflict by renumbering GitHub issues REQ-51→54
+Status: Refactored scripts to eliminate code duplication and improve maintainability
+Target: Consistent, maintainable codebase with single source of truth
+Latest: Extracted common logic, renamed scripts, test script now uses main build
 
 ## Essential Context
-- Resolved numbering conflict: GitHub issues #15-18 now use REQ-51→54
-- REQ-50 uniquely refers to "Automatic PATH configuration" in REQUIREMENTS.md
-- Committed .gitignore update to exclude settings.local.json
-- Removed session-specific CLAUDE_SESSION_TOOLS.md file
-- Project clean and ready for Alpine build testing
+- Scripts renamed for consistency: wsl-alpine-{build,reset,test,test-cleanup,cleanup}.sh
+- Common logic extracted to common-functions.sh (path handling, WSL operations)
+- Test script now calls main build script, eliminating duplicate code
+- Fixed [oobe] not supported by WSL - now runs from /root/.profile on first login
+- All scripts use common functions for Windows path handling and WSL import
 
 ## Next Step
-Test a fresh Alpine build with new PATH auto-configuration feature
+Commit the refactored scripts with improved architecture
+
+## If Blocked
+Review common-functions.sh for the shared implementation details
 
 ## If Blocked
 - Check GitHub issues for implementation details
@@ -25,8 +28,10 @@ Test a fresh Alpine build with new PATH auto-configuration feature
 - README.md - Main documentation with usage instructions
 - CLEANUP-GUIDE.md - Comprehensive cleanup instructions
 - REQUIREMENTS.md - Project requirements (authoritative list)
+- REFACTORING_LOG.md - Script refactoring session log
 - WSL_ALPINE_LOG.md - Development session logs
 - common-functions.sh - Shared utility functions
 - TESTING.md - Detailed testing instructions and troubleshooting
 - ADVANCED-WSL.md - Advanced WSL configuration options
 - CLAUDE.md - Project-specific Claude Code guidance
+- PROJECT_WISDOM.md - Technical insights and discoveries

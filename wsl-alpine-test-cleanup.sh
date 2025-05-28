@@ -111,6 +111,9 @@ if [[ "$ALL_DISTRIBUTIONS" = true ]]; then
         $WSL_EXE --unregister "$DISTRO"
         
         if [[ "$REMOVE_DIRS" = true ]]; then
+          # Get the real user's home directory
+          REAL_HOME=$(get_real_home)
+          
           # For distributions, use the default /tmp/distribution-name pattern
           CHROOT_DIR="/tmp/$DISTRO"
           
@@ -122,6 +125,9 @@ if [[ "$ALL_DISTRIBUTIONS" = true ]]; then
               sudo rm -rf "$CHROOT_DIR"
             fi
           fi
+          
+          # Also remove WSL installation directory
+          cleanup_wsl_dirs "$DISTRO"
         fi
       fi
     fi
@@ -143,6 +149,9 @@ else
         $WSL_EXE --unregister "$DISTRO"
         
         if [[ "$REMOVE_DIRS" = true ]]; then
+          # Get the real user's home directory
+          REAL_HOME=$(get_real_home)
+          
           # For test distributions, use the default /tmp/distribution-name pattern
           CHROOT_DIR="/tmp/$DISTRO"
           
@@ -154,6 +163,9 @@ else
               sudo rm -rf "$CHROOT_DIR"
             fi
           fi
+          
+          # Also remove WSL installation directory
+          cleanup_wsl_dirs "$DISTRO"
         fi
       fi
     fi

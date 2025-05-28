@@ -77,7 +77,7 @@ No new commits this session
 - /dev/null is healthy (crw-rw-rw- as expected)
 
 ### Technical Details
-- Scripts made executable: wsl-alpine-build.sh, test-wsl-alpine-build.sh, reset-wsl-alpine-build.sh, wsl-alpine-build-test-cleanup.sh
+- Scripts made executable: wsl-alpine-build.sh, wsl-alpine-test.sh, wsl-alpine-reset.sh, wsl-alpine-test-cleanup.sh
 - .env configured with:
   - Alpine edge version
   - Helix editor with tree-sitter packages
@@ -98,11 +98,11 @@ No new commits this session
 sudo ./wsl-alpine-build.sh
 
 # Test with temporary distribution
-./test-wsl-alpine-build.sh
+./wsl-alpine-test.sh
 
 # Clean up test distributions
-./wsl-alpine-build-test-cleanup.sh
+./wsl-alpine-test-cleanup.sh
 
 # Reset main distribution
-./reset-wsl-alpine-build.sh
+./wsl-alpine-reset.sh
 ```

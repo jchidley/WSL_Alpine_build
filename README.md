@@ -77,7 +77,7 @@ For testing without affecting your existing WSL setup:
 
 ```bash
 # Run with automatic test name generation
-./test-wsl-alpine-build.sh
+./wsl-alpine-test.sh
 ```
 
 ## Cleanup
@@ -89,10 +89,10 @@ For testing without affecting your existing WSL setup:
 sudo ./wsl-alpine-cleanup.sh
 
 # Quick reset for default distribution
-sudo ./reset-wsl-alpine-build.sh
+sudo ./wsl-alpine-reset.sh
 
 # Clean up all test distributions
-sudo ./wsl-alpine-build-test-cleanup.sh
+sudo ./wsl-alpine-test-cleanup.sh
 ```
 
 ### Manual Cleanup

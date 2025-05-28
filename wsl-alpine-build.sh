@@ -74,7 +74,9 @@ TOOL_PACKAGES=${TOOL_PACKAGES:-"fd bat zoxide fzf"}
 EXTRA_PACKAGES=${EXTRA_PACKAGES:-""}
 COMPRESSION_LEVEL=${COMPRESSION_LEVEL:-"--fast"}
 SYSTEMD_ENABLED=${SYSTEMD_ENABLED:-false}
-WSL_INSTALL_PATH=${WSL_INSTALL_PATH:-"$HOME/alpine.wsl.gz"}
+# Get real user's home directory
+REAL_HOME=$(get_real_home)
+WSL_INSTALL_PATH=${WSL_INSTALL_PATH:-"$REAL_HOME/alpine.wsl.gz"}
 
 # Check for existing distribution with same name
 echo "🔍 Checking for existing WSL distributions..."
@@ -139,20 +141,7 @@ cat << EOF | $SUDO tee > /dev/null $CHROOT_DIR/usr/lib/wsl/terminal-profile.json
 }
 EOF
 
-cat << EOF | $SUDO tee > /dev/null $CHROOT_DIR/etc/wsl-distribution.conf
-# /etc/wsl-distribution.conf
-
-[oobe]
-command = /etc/oobe.sh
-defaultUid = 0 # root user, can use 1000 this needs to match the same id used in oobe.sh
-defaultName = $WSL_DISTRIBUTION_NAME
-
-[shortcut]
-icon = /usr/lib/wsl/my-icon.ico
-
-[windowsterminal]
-ProfileTemplate = /usr/lib/wsl/terminal-profile.json
-EOF
+# Note: wsl-distribution.conf is not used by WSL, oobe is configured in wsl.conf above
 
 cat << EOF | $SUDO tee -a > /dev/null $CHROOT_DIR/etc/apk/repositories
 @testing https://dl-cdn.alpinelinux.org/alpine/edge/testing
@@ -163,31 +152,56 @@ echo "📝 Creating first-boot setup script..."
 # This runs on inital start to update apk and install the other tools, this keeps
 # the initial image small but with the basic usability tools.
 # Assumed to run as root
-cat << EOF | $SUDO tee > /dev/null $CHROOT_DIR/etc/oobe.sh
+cat << 'EOF' | $SUDO tee > /dev/null $CHROOT_DIR/etc/oobe.sh
 #!/bin/ash
-# /etc/oobe.sh
+# /etc/oobe.sh - Alpine Linux first-boot setup script
+
+# Ensure this script only runs once
+if [ -f /etc/oobe.done ]; then
+    exit 0
+fi
+
+echo "🚀 Running Alpine Linux first-boot setup..."
+
+# Update and install additional packages
+echo "📦 Installing additional packages..."
 apk update && apk upgrade
-# apk del tree-sitter-markdown 
 apk add tree-sitter-markdown@testing \
-docker \
-lazydocker \
-tree-sitter-css \
-tree-sitter-html \
-tree-sitter-javascript \
-tree-sitter-typescript \
-tree-sitter-python \
-tree-sitter-rust \
-tree-sitter-c
-ln -s /etc/init.d/docker /etc/runlevels/boot/docker
-mkdir -p ~/.config/helix
-cat << HELIX_EOF > ~/.config/helix/config.toml
+    docker \
+    lazydocker \
+    tree-sitter-css \
+    tree-sitter-html \
+    tree-sitter-javascript \
+    tree-sitter-typescript \
+    tree-sitter-python \
+    tree-sitter-rust \
+    tree-sitter-c
+
+# Enable Docker service
+echo "🐳 Enabling Docker service..."
+ln -sf /etc/init.d/docker /etc/runlevels/boot/docker
+
+# Configure Helix editor
+echo "📝 Configuring Helix editor..."
+mkdir -p /root/.config/helix
+cat << HELIX_EOF > /root/.config/helix/config.toml
 theme = "gruvbox_dark_hard"
 HELIX_EOF
-# remove files relevant for chroot install, and extra env.sh
-rm /enter-chroot /destroy /env.sh
+
+# Clean up chroot artifacts
+echo "🧹 Cleaning up installation artifacts..."
+rm -f /enter-chroot /destroy /env.sh 2>/dev/null || true
+
+# Mark setup as complete
+touch /etc/oobe.done
+
+# Remove this script
+rm -f /etc/oobe.sh
+
+echo "✅ First-boot setup complete!"
 echo "====================================================="
-echo "to complete the installation, exit this shell and run"
-echo "$WSL_EXE -t $WSL_DISTRIBUTION_NAME"
+echo "Alpine Linux is ready to use. Enjoy!"
+echo "====================================================="
 EOF
 $SUDO chmod +x $CHROOT_DIR/etc/oobe.sh
 echo "✅ First-boot setup script created"
@@ -217,6 +231,11 @@ echo "🖥️ Configuring shell environment..."
 cat << 'EOF' | $SUDO tee > /dev/null $CHROOT_DIR/root/.profile
 export COLORTERM=truecolor
 eval "$(zoxide init posix --hook prompt)"
+
+# Run first-boot setup if needed
+if [ -f /etc/oobe.sh ] && [ ! -f /etc/oobe.done ]; then
+    /etc/oobe.sh
+fi
 EOF
 
 # Package the distribution
@@ -228,17 +247,11 @@ echo "✅ WSL distribution packaged successfully at $WSL_INSTALL_PATH"
 
 # Install the distribution
 echo "🚀 Installing WSL distribution as $WSL_DISTRIBUTION_NAME..."
-$WSL_EXE --install --from-file "$WSL_INSTALL_PATH"
+import_wsl_distribution "$WSL_DISTRIBUTION_NAME" "$WSL_INSTALL_PATH"
 echo "✅ WSL distribution installed successfully"
 
-# Initial launch to trigger first-boot script
-echo "🚀 Launching distribution for initial setup..."
-$WSL_EXE -d "$WSL_DISTRIBUTION_NAME" -e sh -c "exit 0" || true
-
-# Terminate the distribution to ensure clean state
-echo "🔄 Terminating distribution for clean restart..."
-$WSL_EXE -t "$WSL_DISTRIBUTION_NAME"
-sleep 2
+# Note: The oobe script will run automatically on first interactive login
+# due to the check in /root/.profile
 
 # Test the installation
 echo "🧪 Testing WSL distribution..."
@@ -256,7 +269,8 @@ cat << EOF
 
 To start using it:
   - Run: wsl -d $WSL_DISTRIBUTION_NAME
-  - First boot will install additional packages
+  - First boot will automatically run setup and install additional packages
+  - The setup script will show progress and complete automatically
   - After first boot, restart with: wsl -t $WSL_DISTRIBUTION_NAME && wsl -d $WSL_DISTRIBUTION_NAME
 
 To customize:

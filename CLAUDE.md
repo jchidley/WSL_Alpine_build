@@ -9,9 +9,9 @@ This repository contains scripts for building a customized Alpine Linux distribu
 ## Repository Structure
 
 - `wsl-alpine-build.sh` - Main script to build and install Alpine WSL distribution
-- `reset-wsl-alpine-build.sh` - Script to unregister and clean up WSL distribution
-- `test-wsl-alpine-build.sh` - Script for testing the build process with isolated test distributions
-- `wsl-alpine-build-test-cleanup.sh` - Utility to clean up test distributions
+- `wsl-alpine-reset.sh` - Script to unregister and clean up WSL distribution
+- `wsl-alpine-test.sh` - Script for testing the build process with isolated test distributions
+- `wsl-alpine-test-cleanup.sh` - Utility to clean up test distributions
 - Documentation:
   - `README.md` - Main documentation with usage instructions
   - `REQUIREMENTS.md` - Project rationale, requirements, and design principles
@@ -62,14 +62,14 @@ This script:
 5. Bundles everything into a WSL-compatible archive
 6. Installs the new distribution in WSL
 
-### reset-wsl-alpine-build.sh
+### wsl-alpine-reset.sh
 
 This script:
 1. Unregisters the Alpine WSL distribution
 2. Removes temporary files
 3. Cleans up the chroot directory
 
-### test-wsl-alpine-build.sh
+### wsl-alpine-test.sh
 
 This script:
 1. Creates a uniquely named test distribution
@@ -77,7 +77,7 @@ This script:
 3. Verifies the installation works properly
 4. Provides cleanup options
 
-### wsl-alpine-build-test-cleanup.sh
+### wsl-alpine-test-cleanup.sh
 
 This script:
 1. Identifies test distributions based on naming pattern
@@ -89,7 +89,7 @@ This script:
 1. Create the `.env` file with your preferred configuration
 2. Run `./wsl-alpine-build.sh` to build and install the Alpine WSL distribution
 3. After first boot, follow the on-screen instructions to complete installation
-4. If needed, run `./reset-wsl-alpine-build.sh` to clean up and remove the distribution
+4. If needed, run `./wsl-alpine-reset.sh` to clean up and remove the distribution
 
 ## Custom Configurations
 

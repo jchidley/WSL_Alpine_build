@@ -34,6 +34,9 @@ if ! find_wsl_exe; then
   exit 1
 fi
 
+# Get the real user's home directory
+REAL_HOME=$(get_real_home)
+
 # Display warning and get confirmation
 echo "⚠️ WARNING: This will completely remove the Alpine WSL distribution: $WSL_DISTRIBUTION_NAME"
 echo "The following actions will be performed:"
@@ -41,6 +44,7 @@ echo "  1. Unregister the WSL distribution '$WSL_DISTRIBUTION_NAME'"
 echo "  2. Remove the alpine-chroot-install script if present"
 echo "  3. Delete ~/alpine.wsl.gz file if present"
 echo "  4. Clean up the chroot directory: $CHROOT_DIR"
+echo "  5. Remove WSL installation directory (if accessible)"
 echo
 echo "Continue? [y/N]"
 read -r response
@@ -97,6 +101,9 @@ if [ -d "$CHROOT_DIR" ]; then
 else
   echo "ℹ️ Chroot directory not found at $CHROOT_DIR, skipping cleanup"
 fi
+
+# Clean up WSL installation directories
+cleanup_wsl_dirs "$WSL_DISTRIBUTION_NAME"
 
 echo "🧹 Cleanup complete!"
 echo "✅ Alpine WSL distribution and associated files have been removed"

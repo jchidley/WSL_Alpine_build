@@ -70,3 +70,88 @@ find_wsl_exe() {
   export WSL_EXE
   return 0
 }
+
+# Function to get real user's home directory when running with sudo
+get_real_home() {
+  local real_user="${SUDO_USER:-$USER}"
+  echo "/home/$real_user"
+}
+
+# Function to get Windows username
+get_windows_username() {
+  cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r\n'
+}
+
+# Function to convert Linux path to Windows path
+get_windows_path() {
+  local linux_path="$1"
+  if command -v wslpath &>/dev/null; then
+    wslpath -w "$linux_path" 2>/dev/null
+  else
+    echo "$linux_path"
+  fi
+}
+
+# Function to create WSL import directory
+create_wsl_install_dir() {
+  local distro_name="$1"
+  local windows_user=$(get_windows_username)
+  
+  if [ -n "$windows_user" ] && [ -d "/mnt/c/Users/$windows_user" ]; then
+    # Use Windows user directory
+    local wsl_dir="/mnt/c/Users/$windows_user/WSL/$distro_name"
+    mkdir -p "$wsl_dir"
+    echo "$wsl_dir"
+  else
+    # Fallback to current directory
+    echo "."
+  fi
+}
+
+# Function to import WSL distribution
+import_wsl_distribution() {
+  local distro_name="$1"
+  local tar_path="$2"
+  local install_dir=$(create_wsl_install_dir "$distro_name")
+  
+  echo "Creating WSL installation directory: $install_dir"
+  
+  if [ "$install_dir" != "." ]; then
+    local win_install_dir=$(get_windows_path "$install_dir")
+    local win_tar_path=$(get_windows_path "$tar_path")
+    
+    echo "Windows install directory: $win_install_dir"
+    echo "Windows tar path: $win_tar_path"
+    
+    $WSL_EXE --import "$distro_name" "$win_install_dir" "$win_tar_path"
+  else
+    echo "Could not determine Windows user directory, using current directory"
+    $WSL_EXE --import "$distro_name" . "$tar_path"
+  fi
+}
+
+# Function to get all possible WSL installation directories
+get_wsl_install_dirs() {
+  local distro_name="$1"
+  local real_home=$(get_real_home)
+  local windows_user=$(get_windows_username)
+  
+  local dirs=(
+    "$real_home/.wsl/$distro_name"
+    "/mnt/c/Users/$windows_user/WSL/$distro_name"
+  )
+  
+  printf '%s\n' "${dirs[@]}"
+}
+
+# Function to clean up WSL installation directories
+cleanup_wsl_dirs() {
+  local distro_name="$1"
+  
+  for wsl_dir in $(get_wsl_install_dirs "$distro_name"); do
+    if [ -d "$wsl_dir" ]; then
+      echo "🗑️ Removing WSL installation directory: $wsl_dir"
+      rm -rf "$wsl_dir" || echo "⚠️ Warning: Failed to remove $wsl_dir"
+    fi
+  done
+}

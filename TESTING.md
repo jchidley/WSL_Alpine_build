@@ -22,7 +22,7 @@ This document describes approaches for testing the WSL Alpine build scripts from
 
 ## Using the Test Script
 
-The repository includes an enhanced `test-wsl-alpine-build.sh` script with several testing options:
+The repository includes an enhanced `wsl-alpine-test.sh` script with several testing options:
 
 ### Test Options
 
@@ -35,10 +35,10 @@ The repository includes an enhanced `test-wsl-alpine-build.sh` script with sever
 
 ```bash
 # Make the script executable
-chmod +x test-wsl-alpine-build.sh
+chmod +x wsl-alpine-test.sh
 
 # Run the test script
-./test-wsl-alpine-build.sh
+./wsl-alpine-test.sh
 ```
 
 ### What the Test Script Does
@@ -101,7 +101,7 @@ For situations where more control is needed, you can test manually:
    mv .env.bak .env
    
    # Test reset script with the test distribution
-   WSL_DISTRIBUTION_NAME=alp-test-$TIMESTAMP ./reset-wsl-alpine-build.sh
+   WSL_DISTRIBUTION_NAME=alp-test-$TIMESTAMP ./wsl-alpine-reset.sh
    ```
 
 ## Testing Advanced Configurations
@@ -128,16 +128,16 @@ For comprehensive cleanup of test distributions:
 
 ```bash
 # Remove all distributions with names matching the alp-test-* pattern
-./wsl-alpine-build-test-cleanup.sh
+./wsl-alpine-test-cleanup.sh
 
 # View all distributions but only remove test ones
-./wsl-alpine-build-test-cleanup.sh --all
+./wsl-alpine-test-cleanup.sh --all
 
 # Use a custom pattern for test distributions
-./wsl-alpine-build-test-cleanup.sh --pattern "alpine-custom-.*"
+./wsl-alpine-test-cleanup.sh --pattern "alpine-custom-.*"
 
 # Get help on cleanup options
-./wsl-alpine-build-test-cleanup.sh --help
+./wsl-alpine-test-cleanup.sh --help
 ```
 
 ## Debugging Tips
@@ -284,7 +284,7 @@ Always clean up test artifacts when finished:
 
 ```bash
 # Run the cleanup script to remove all test distributions
-./wsl-alpine-build-test-cleanup.sh
+./wsl-alpine-test-cleanup.sh
 
 # Or manually clean up specific distributions
 wsl.exe --unregister alp-test-TIMESTAMP 
