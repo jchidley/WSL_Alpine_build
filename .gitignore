@@ -1,0 +1,51 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+alpine-chroot-install
+*.wsl.gz
+alpine.wsl.gz
+alpine-test.wsl.gz
+
+# Temporary directories
+/tmp/
+**/tmp/
+alp*/
+alp-test-*/
+
+# Log files
+*.log
+*.out
+*.err
+
+# Backup files
+*.bak
+*.backup
+*~
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+.project
+.settings/
+
+# Test artifacts
+test-results/
+coverage/
+
+# Session/temporary documentation
+SESSION_*.md
+*_SESSION.md
+
+# Personal notes (but keep project-specific docs)
+personal-notes.md
+scratch.md
