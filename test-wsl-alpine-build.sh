@@ -9,18 +9,23 @@
 # Make script exit on error
 set -e
 
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common-functions.sh"
+
+# Check sudo and setup paths
+check_sudo_and_paths
+
 # Generate unique test name with timestamp
 TEST_TIMESTAMP=$(date +%Y%m%d%H%M%S)
 TEST_NAME="alp-test-${TEST_TIMESTAMP}"
 
 # Check if wsl.exe is accessible (required for WSL operations)
 echo "🔍 Verifying WSL environment..."
-if ! cmd.exe /c "where wsl.exe" &>/dev/null; then
-  echo "❌ Error: wsl.exe not found in Windows PATH"
-  echo "Make sure Windows Subsystem for Linux interoperability is working."
+if ! find_wsl_exe; then
   exit 1
 fi
-echo "✅ WSL command access verified"
+echo "✅ WSL command access verified (using $WSL_EXE)"
 
 # Load environment variables but override distribution name and chroot directory
 if [ -f .env ]; then
@@ -48,7 +53,7 @@ echo "  - Chroot directory: $CHROOT_DIR"
 echo "  - Install path: $WSL_INSTALL_PATH"
 
 # Check if the distribution already exists (shouldn't be possible with timestamp)
-if wsl.exe --list | grep -q "$WSL_DISTRIBUTION_NAME"; then
+if $WSL_EXE --list | grep -q "$WSL_DISTRIBUTION_NAME"; then
   echo "⚠️ Distribution $WSL_DISTRIBUTION_NAME already exists."
   read -p "Would you like to remove it and continue? [y/N] " -r confirm
   if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
@@ -57,7 +62,7 @@ if wsl.exe --list | grep -q "$WSL_DISTRIBUTION_NAME"; then
   fi
   
   echo "Removing existing distribution..."
-  wsl.exe --unregister "$WSL_DISTRIBUTION_NAME" || { echo "Failed to unregister distribution."; exit 1; }
+  $WSL_EXE --unregister "$WSL_DISTRIBUTION_NAME" || { echo "Failed to unregister distribution."; exit 1; }
 fi
 
 # Create a temporary .env file for the test
@@ -103,7 +108,7 @@ case $test_option in
     echo "🔍 Running quick WSL command verification only..."
     # Test WSL commands without building
     echo "Testing WSL command functionality..."
-    if wsl.exe --version &>/dev/null; then
+    if $WSL_EXE --version &>/dev/null; then
       echo "✅ WSL commands working correctly"
       # Restore original .env if it existed
       if [ -f .env.bak ]; then
@@ -176,7 +181,7 @@ fi
 # Verify the distribution was created
 echo "🔍 Verifying installation..."
 echo "Checking WSL distributions:"
-wsl.exe --list
+$WSL_EXE --list
 echo ""
 
 # Give WSL a moment to register the new distribution
@@ -185,7 +190,7 @@ sleep 5
 
 # Try again with more robust pattern matching
 echo "Checking for distribution: $WSL_DISTRIBUTION_NAME"
-WSL_LIST=$(wsl.exe --list 2>/dev/null | tr -d '\0' | tr -d '\r')
+WSL_LIST=$($WSL_EXE --list 2>/dev/null | tr -d '\0' | tr -d '\r')
 if ! echo "$WSL_LIST" | grep -q "$WSL_DISTRIBUTION_NAME"; then
   echo "⚠️ Distribution not found with exact name. Checking for similar distributions..."
   # Extract the prefix part for fuzzy matching
@@ -207,7 +212,7 @@ echo "🧪 Testing distribution functionality..."
 echo "Running command in $WSL_DISTRIBUTION_NAME..."
 
 # Add error handling for the WSL command
-if ! OUTPUT=$(wsl.exe -d "$WSL_DISTRIBUTION_NAME" -e echo "Alpine test successful" 2>&1); then
+if ! OUTPUT=$($WSL_EXE -d "$WSL_DISTRIBUTION_NAME" -e echo "Alpine test successful" 2>&1); then
   echo "❌ Command failed with error:"
   echo "$OUTPUT"
   
@@ -216,7 +221,7 @@ if ! OUTPUT=$(wsl.exe -d "$WSL_DISTRIBUTION_NAME" -e echo "Alpine test successfu
     echo "Distribution might be starting up. Waiting 10 seconds..."
     sleep 10
     # Try again
-    if ! wsl.exe -d "$WSL_DISTRIBUTION_NAME" -e echo "Alpine test successful"; then
+    if ! $WSL_EXE -d "$WSL_DISTRIBUTION_NAME" -e echo "Alpine test successful"; then
       echo "❌ Distribution was created but cannot run commands after waiting."
       exit 1
     else
@@ -233,7 +238,7 @@ fi
 
 # Test Alpine-specific commands to verify it's actually Alpine
 echo "🧪 Verifying Alpine Linux..."
-if ! ALPINE_VERSION=$(wsl.exe -d "$WSL_DISTRIBUTION_NAME" -e cat /etc/alpine-release 2>&1); then
+if ! ALPINE_VERSION=$($WSL_EXE -d "$WSL_DISTRIBUTION_NAME" -e cat /etc/alpine-release 2>&1); then
   echo "❌ Failed to verify Alpine version:"
   echo "$ALPINE_VERSION"
   exit 1
@@ -242,7 +247,7 @@ echo "✅ Confirmed Alpine Linux version: $ALPINE_VERSION"
 
 # Test Helix editor installation
 echo "🧪 Verifying Helix editor installation..."
-if ! wsl.exe -d "$WSL_DISTRIBUTION_NAME" -e which hx &>/dev/null; then
+if ! $WSL_EXE -d "$WSL_DISTRIBUTION_NAME" -e which hx &>/dev/null; then
   echo "⚠️ Warning: Helix editor not found in PATH"
 else
   echo "✅ Helix editor installed"
@@ -252,7 +257,7 @@ fi
 echo "🧪 Verifying core utilities..."
 CORE_UTILS=("zoxide" "bat" "fd" "fzf")
 for util in "${CORE_UTILS[@]}"; do
-  if ! wsl.exe -d "$WSL_DISTRIBUTION_NAME" -e which "$util" &>/dev/null; then
+  if ! $WSL_EXE -d "$WSL_DISTRIBUTION_NAME" -e which "$util" &>/dev/null; then
     echo "⚠️ Warning: $util not found in PATH"
   else
     echo "✅ $util installed"
@@ -272,7 +277,7 @@ read -p "Select option [1-2]: " -r cleanup_option
 case $cleanup_option in
   1)
     echo "🧹 Removing test distribution..."
-    if wsl.exe --unregister "$WSL_DISTRIBUTION_NAME"; then
+    if $WSL_EXE --unregister "$WSL_DISTRIBUTION_NAME"; then
       echo "✅ Test distribution removed"
       # Also remove the test WSL file
       if [ -f "$WSL_INSTALL_PATH" ]; then

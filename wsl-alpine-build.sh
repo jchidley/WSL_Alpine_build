@@ -15,6 +15,13 @@
 # Make script exit on error
 set -e
 
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common-functions.sh"
+
+# Check sudo and setup paths
+check_sudo_and_paths
+
 # Windows path conversion utility function
 win_to_wsl_path() {
   echo "$1" | sed 's/\\/\//g; s/^\([A-Za-z]\):/\/mnt\/\L\1/'
@@ -22,12 +29,10 @@ win_to_wsl_path() {
 
 # Check if wsl.exe is accessible (required for WSL operations)
 echo "🔍 Verifying WSL environment..."
-if ! cmd.exe /c "where wsl.exe" &>/dev/null; then
-  echo "❌ Error: wsl.exe not found in Windows PATH"
-  echo "Make sure Windows Subsystem for Linux interoperability is working."
+if ! find_wsl_exe; then
   exit 1
 fi
-echo "✅ WSL command access verified"
+echo "✅ WSL command access verified (using $WSL_EXE)"
 
 # Source environment variables from .env or create if missing
 set -a # automatically export all variables
@@ -73,11 +78,11 @@ WSL_INSTALL_PATH=${WSL_INSTALL_PATH:-"$HOME/alpine.wsl.gz"}
 
 # Check for existing distribution with same name
 echo "🔍 Checking for existing WSL distributions..."
-if wsl.exe -l | grep -q "$WSL_DISTRIBUTION_NAME"; then
+if $WSL_EXE -l | grep -q "$WSL_DISTRIBUTION_NAME"; then
   echo "⚠️ Warning: A WSL distribution named '$WSL_DISTRIBUTION_NAME' already exists"
   echo "This script will NOT automatically remove it."
   echo "To proceed, manually unregister it first with:"
-  echo "  wsl.exe --unregister $WSL_DISTRIBUTION_NAME"
+  echo "  $WSL_EXE --unregister $WSL_DISTRIBUTION_NAME"
   exit 1
 fi
 echo "✅ No conflicts found with distribution name '$WSL_DISTRIBUTION_NAME'"
@@ -96,6 +101,7 @@ if [[ ! -f alpine-chroot-install ]]; then
   wget https://raw.githubusercontent.com/alpinelinux/alpine-chroot-install/v0.14.0/alpine-chroot-install \
   && echo 'ccbf65f85cdc351851f8ad025bb3e65bae4d5b06 alpine-chroot-install' | sha1sum -c \
   || { echo "❌ Failed to download or verify alpine-chroot-install"; exit 1; }
+  chmod +x alpine-chroot-install
 fi
 echo "✅ Alpine chroot install script verified"
 
@@ -181,7 +187,7 @@ HELIX_EOF
 rm /enter-chroot /destroy /env.sh
 echo "====================================================="
 echo "to complete the installation, exit this shell and run"
-echo "wsl.exe -t $WSL_DISTRIBUTION_NAME"
+echo "$WSL_EXE -t $WSL_DISTRIBUTION_NAME"
 EOF
 $SUDO chmod +x $CHROOT_DIR/etc/oobe.sh
 echo "✅ First-boot setup script created"
@@ -222,12 +228,21 @@ echo "✅ WSL distribution packaged successfully at $WSL_INSTALL_PATH"
 
 # Install the distribution
 echo "🚀 Installing WSL distribution as $WSL_DISTRIBUTION_NAME..."
-wsl.exe --install --from-file "$WSL_INSTALL_PATH"
+$WSL_EXE --install --from-file "$WSL_INSTALL_PATH"
 echo "✅ WSL distribution installed successfully"
+
+# Initial launch to trigger first-boot script
+echo "🚀 Launching distribution for initial setup..."
+$WSL_EXE -d "$WSL_DISTRIBUTION_NAME" -e sh -c "exit 0" || true
+
+# Terminate the distribution to ensure clean state
+echo "🔄 Terminating distribution for clean restart..."
+$WSL_EXE -t "$WSL_DISTRIBUTION_NAME"
+sleep 2
 
 # Test the installation
 echo "🧪 Testing WSL distribution..."
-if wsl.exe -d "$WSL_DISTRIBUTION_NAME" -e echo "Alpine WSL test successful"; then
+if $WSL_EXE -d "$WSL_DISTRIBUTION_NAME" -e echo "Alpine WSL test successful"; then
   echo "✅ WSL distribution verified working"
 else
   echo "⚠️ Warning: WSL distribution test failed"

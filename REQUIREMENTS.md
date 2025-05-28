@@ -489,3 +489,13 @@ Requirements Proposed: 2025-05-28
 - [ ] REQ-47: Security hardening options
 - [ ] REQ-48: Distribution upgrade path
 - [ ] REQ-49: Integration with CI/CD pipelines
+
+### Additional Requirements (Added Post-Implementation)
+
+Requirements Added: 2025-05-28
+
+- [x] REQ-50: Automatic PATH configuration for Windows executables under sudo
+  - Scripts should automatically detect when running under sudo without Windows paths
+  - Attempt to add common Windows paths to PATH automatically
+  - Only require `sudo -E` as a fallback if automatic configuration fails
+  - Implemented via common-functions.sh shared by all scripts

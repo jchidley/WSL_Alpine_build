@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -e
 
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common-functions.sh"
+
+# Check sudo and setup paths
+check_sudo_and_paths
+
+# Find wsl.exe
+if ! find_wsl_exe; then
+  exit 1
+fi
+
 # Default pattern for test distributions created by test-wsl-alpine-build.sh
 TEST_PATTERN="alp-test-[0-9]+"
 
@@ -59,7 +71,7 @@ done
 
 # Get list of WSL distributions
 echo "Scanning for WSL distributions..."
-WSL_LIST=$(wsl.exe --list --verbose 2>/dev/null | tr -d '\0\r')
+WSL_LIST=$($WSL_EXE --list --verbose 2>/dev/null | tr -d '\0\r')
 
 # Filter distributions based on pattern or show all
 if [[ "$ALL_DISTRIBUTIONS" = true ]]; then
@@ -96,7 +108,7 @@ if [[ "$ALL_DISTRIBUTIONS" = true ]]; then
         fi
         
         echo "Unregistering test distribution: $DISTRO..."
-        wsl.exe --unregister "$DISTRO"
+        $WSL_EXE --unregister "$DISTRO"
         
         if [[ "$REMOVE_DIRS" = true ]]; then
           # For distributions, use the default /tmp/distribution-name pattern
@@ -128,7 +140,7 @@ else
         fi
         
         echo "Unregistering test distribution: $DISTRO..."
-        wsl.exe --unregister "$DISTRO"
+        $WSL_EXE --unregister "$DISTRO"
         
         if [[ "$REMOVE_DIRS" = true ]]; then
           # For test distributions, use the default /tmp/distribution-name pattern

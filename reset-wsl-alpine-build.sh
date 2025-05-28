@@ -7,6 +7,13 @@
 # Make script exit on error
 set -e
 
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common-functions.sh"
+
+# Check sudo and setup paths
+check_sudo_and_paths
+
 # Source environment variables from .env
 set -a # automatically export all variables
 if [ -f .env ]; then
@@ -23,9 +30,7 @@ set +a
 
 # Verify WSL access
 echo "🔍 Verifying WSL environment..."
-if ! cmd.exe /c "where wsl.exe" &>/dev/null; then
-  echo "❌ Error: wsl.exe not found in Windows PATH"
-  echo "Make sure Windows Subsystem for Linux interoperability is working."
+if ! find_wsl_exe; then
   exit 1
 fi
 
@@ -46,9 +51,9 @@ fi
 
 # Check and unregister distribution
 echo "🔍 Checking for WSL distribution: $WSL_DISTRIBUTION_NAME"
-if wsl.exe -l | grep -q "$WSL_DISTRIBUTION_NAME"; then
+if $WSL_EXE -l | grep -q "$WSL_DISTRIBUTION_NAME"; then
   echo "🗑️ Unregistering WSL distribution: $WSL_DISTRIBUTION_NAME"
-  if ! wsl.exe --unregister "$WSL_DISTRIBUTION_NAME"; then
+  if ! $WSL_EXE --unregister "$WSL_DISTRIBUTION_NAME"; then
     echo "❌ Failed to unregister WSL distribution"
     echo "This may require administrator privileges in Windows"
     exit 1

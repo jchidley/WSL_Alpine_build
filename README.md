@@ -41,8 +41,8 @@ This project creates a lightweight, isolated Alpine Linux WSL distribution speci
    # Make sure the script is executable
    chmod +x wsl-alpine-build.sh
    
-   # Run the script
-   ./wsl-alpine-build.sh
+   # Run the script (will auto-configure paths)
+   sudo ./wsl-alpine-build.sh
    ```
 
 3. **First Boot Setup**
@@ -82,15 +82,26 @@ For testing without affecting your existing WSL setup:
 
 ## Cleanup
 
-To remove a distribution:
+### Automated Cleanup
 
 ```bash
-# Use the reset script (reads from .env)
-./reset-wsl-alpine-build.sh
+# Comprehensive cleanup with detailed scanning
+sudo ./wsl-alpine-cleanup.sh
 
-# To clean up test distributions
-./wsl-alpine-build-test-cleanup.sh
+# Quick reset for default distribution
+sudo ./reset-wsl-alpine-build.sh
+
+# Clean up all test distributions
+sudo ./wsl-alpine-build-test-cleanup.sh
 ```
+
+### Manual Cleanup
+
+See [CLEANUP-GUIDE.md](CLEANUP-GUIDE.md) for:
+- Detailed cleanup instructions
+- Troubleshooting cleanup issues
+- Manual removal steps
+- Windows-side cleanup
 
 ## Documentation
 
@@ -100,6 +111,7 @@ To remove a distribution:
 - See [IMPROVEMENTS.md](IMPROVEMENTS.md) for implemented features and roadmap
 - See [TESTING.md](TESTING.md) for detailed testing instructions
 - See [ADVANCED-WSL.md](ADVANCED-WSL.md) for advanced WSL configuration and features
+- See [CLEANUP-GUIDE.md](CLEANUP-GUIDE.md) for comprehensive cleanup instructions
 
 ### Related Articles
 This project builds upon concepts detailed in these published articles:
