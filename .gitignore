@@ -49,3 +49,6 @@ SESSION_*.md
 # Personal notes (but keep project-specific docs)
 personal-notes.md
 scratch.md
+
+# Claude Code settings (user-specific)
+settings.local.json
