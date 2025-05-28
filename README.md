@@ -4,7 +4,9 @@ A comprehensive set of scripts to build a customized Alpine Linux distribution f
 
 ## Overview
 
-This project creates a custom Alpine Linux WSL distribution with pre-configured utilities and optimizations including:
+This project creates a lightweight, isolated Alpine Linux WSL distribution specifically designed for running Docker without the overhead of Docker Desktop. For detailed rationale and requirements, see [REQUIREMENTS.md](REQUIREMENTS.md).
+
+### Key Features
 
 - **Helix editor** with tree-sitter syntax highlighting for multiple languages
 - **Docker** with lazydocker for container management
@@ -92,9 +94,17 @@ To remove a distribution:
 
 ## Documentation
 
-- See [CLAUDE.md](CLAUDE.md) for project overview
-- See [IMPROVEMENTS.md](IMPROVEMENTS.md) for implemented features
+### Project Documentation
+- See [REQUIREMENTS.md](REQUIREMENTS.md) for project rationale and requirements
+- See [CLAUDE.md](CLAUDE.md) for project overview and AI guidance
+- See [IMPROVEMENTS.md](IMPROVEMENTS.md) for implemented features and roadmap
 - See [TESTING.md](TESTING.md) for detailed testing instructions
+- See [ADVANCED-WSL.md](ADVANCED-WSL.md) for advanced WSL configuration and features
+
+### Related Articles
+This project builds upon concepts detailed in these published articles:
+- [Systems-on-Systems](https://jchidley.github.io/mkdocs-material-test/Other/2023-09-24-Systems-on-Systems/) - Running systems within systems (WSL, Docker, VMs)
+- [File Systems](https://jchidley.github.io/mkdocs-material-test/Linux/2020-01-28-FileSystems/) - Linux file systems including OverlayFS
 
 ## License
 

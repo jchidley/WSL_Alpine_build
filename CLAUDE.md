@@ -14,8 +14,10 @@ This repository contains scripts for building a customized Alpine Linux distribu
 - `wsl-alpine-build-test-cleanup.sh` - Utility to clean up test distributions
 - Documentation:
   - `README.md` - Main documentation with usage instructions
+  - `REQUIREMENTS.md` - Project rationale, requirements, and design principles
   - `IMPROVEMENTS.md` - Implemented and future improvements
   - `TESTING.md` - Detailed testing instructions and troubleshooting
+  - `ADVANCED-WSL.md` - Advanced WSL configuration and features
   - `CLAUDE.md` - This file, providing guidance for Claude Code
 
 ## Prerequisites
