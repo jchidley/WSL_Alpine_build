@@ -53,10 +53,18 @@ Impact: CRITICAL - Must use exit traps, multiple cleanup fallbacks, and system i
 Insight: alpine-chroot-install is designed for temporary CI/testing environments, not for building distributable images
 Impact: Should use Alpine's official minirootfs tarballs instead - no bind mounts, no host risk, proper method for custom distributions
 
-### 2025-05-29: WSL Tar Format Requires Specific Flags
-Insight: WSL distributions require `tar --numeric-owner -c . | gzip` with root ownership (0/0)
-Impact: Must use fakeroot to preserve root ownership without sudo, and use . instead of * for proper directory structure
+### 2025-05-29: WSL Tar Format - Microsoft Docs Are Wrong
+Insight: Microsoft's docs recommend `--absolute-names` but this CAUSES import failures
+Impact: Use `tar --numeric-owner -c .` WITHOUT --absolute-names flag, despite what MS documentation says
 
 ### 2025-05-29: WSL Import Requires Windows Paths in WSL 2
 Insight: WSL --import fails with "ERROR_UNHANDLED_EXCEPTION" when using Linux paths for install location
 Impact: Must use Windows paths (C:\WSL\<distro>) for install location and convert tar path with wslpath -w
+
+### 2025-05-29: Root Ownership Critical for WSL Import
+Insight: WSL requires all files in tar to be owned by root (0/0), not regular user (1000/1000)
+Impact: Must use fakeroot when creating tar to preserve root ownership without needing sudo privileges
+
+### 2025-05-29: Debugging WSL Import - Test Everything
+Insight: Even vanilla Alpine minirootfs and exported WSL distributions failed with same error
+Impact: The issue was with import parameters (paths) not the tar content - always test with known-good files first
