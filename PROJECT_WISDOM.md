@@ -49,6 +49,10 @@ Impact: Claude must implement the logic described in the command documentation, 
 Insight: alpine-chroot-install bind-mounts /dev, /proc, /sys which can corrupt host if cleanup fails
 Impact: CRITICAL - Must use exit traps, multiple cleanup fallbacks, and system integrity checks to prevent catastrophic /dev corruption
 
+### 2025-05-29: BATS Testing Requires Special Output Handling
+Insight: BATS captures function output differently than normal execution - ANSI escape codes must be stripped for assertions
+Impact: Test assertions should use sed to strip color codes: sed 's/\x1b\[[0-9;]*m//g' for reliable string matching
+
 ### 2025-05-29: Alpine-chroot-install Is Wrong Tool for WSL Distributions
 Insight: alpine-chroot-install is designed for temporary CI/testing environments, not for building distributable images
 Impact: Should use Alpine's official minirootfs tarballs instead - no bind mounts, no host risk, proper method for custom distributions

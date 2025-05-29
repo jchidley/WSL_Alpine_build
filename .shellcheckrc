@@ -1,0 +1,21 @@
+# ShellCheck configuration for Alpine WSL Build project
+
+# Set minimum severity
+# error, warning, info, style
+severity=warning
+
+# Enable all optional checks
+enable=all
+
+# Disable specific checks if needed
+# disable=SC2034  # Example: unused variables
+
+# Shell dialect
+shell=bash
+
+# External sources
+# source-path=SCRIPTDIR
+source-path=src/lib
+
+# Exclude paths
+# exclude=SC1090,SC1091  # Can't follow non-constant source
