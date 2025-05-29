@@ -567,3 +567,21 @@ Requirements Added: 2025-05-29
     - Ensure consistent use of constants and naming conventions
     - Update all scripts to follow the same structural pattern
     - Document any script-specific functions that remain
+
+- [ ] REQ-55: Replace alpine-chroot-install with safe minirootfs approach
+  - Priority: Critical
+  - Status: In Progress
+  - GitHub Issue: #33
+  - Description: Replace the current alpine-chroot-install based build process with Alpine's official minirootfs approach to eliminate host system corruption risks
+  - Rationale: The alpine-chroot-install tool creates dangerous bind mounts (/dev, /proc, /sys) that can corrupt the host system if cleanup fails. This has already caused deletion of critical devices (/dev/null, /dev/random, /dev/urandom) during development.
+  - Implementation Notes:
+    - Use Alpine's official minirootfs tarballs as the base
+    - No bind mounts or chroot operations required
+    - Direct file manipulation for configuration
+    - APK package installation using --root flag
+    - Follows Microsoft's WSL distribution guidelines
+    - Creates proper wsl.conf and wsl-distribution.conf files
+    - Implements OOBE (Out-of-Box Experience) script
+    - Maintains all existing functionality (Docker, Helix, modern CLI tools)
+    - Simpler, safer, and more maintainable approach
+    - Already fully documented in MINIROOTFS-APPROACH.md
