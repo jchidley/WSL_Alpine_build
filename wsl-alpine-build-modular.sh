@@ -5,6 +5,11 @@
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Initialize variables before error handling setup
+export DEBUG="${DEBUG:-0}"
+export VERBOSE="${VERBOSE:-0}"
+export DRY_RUN="${DRY_RUN:-0}"
+
 # Source shared libraries
 source "${SCRIPT_DIR}/src/lib/common.sh"
 source "${SCRIPT_DIR}/src/lib/prerequisites.sh"
@@ -224,10 +229,17 @@ apk add --no-cache \
     nano \
     vim
 
+# Create wheel group if it doesn't exist
+if ! grep -q "^wheel:" /etc/group; then
+    echo "Creating wheel group..."
+    addgroup -S wheel
+fi
+
 # Create default user if it doesn't exist
 if ! id alpine >/dev/null 2>&1; then
     echo "Creating default user 'alpine'..."
-    adduser -D -s /bin/bash -G wheel alpine
+    adduser -D -s /bin/bash alpine
+    adduser alpine wheel
     echo "alpine:alpine" | chpasswd
     
     # Configure sudo
@@ -238,8 +250,9 @@ fi
 # Set up user home directory
 if [ ! -d /home/alpine ]; then
     mkdir -p /home/alpine
-    chown -R alpine:alpine /home/alpine
 fi
+# Fix ownership after user is created
+chown -R alpine:alpine /home/alpine
 
 # Create .bashrc if it doesn't exist
 if [ ! -f /home/alpine/.bashrc ]; then
@@ -308,11 +321,10 @@ package_distribution() {
 install_wsl() {
     local tarball="$1"
     local name="$2"
-    local location="$3"
+    local location="$3"  # Not used anymore, keeping for compatibility
     
     progress "Installing distribution in WSL..."
     verbose "Distribution name: $name"
-    verbose "Install location: $location"
     
     # Check if distribution already exists
     if wsl.exe --list --quiet | grep -q "^${name}$"; then
@@ -328,12 +340,16 @@ install_wsl() {
         dry_run_exec wsl.exe --unregister "$name"
     fi
     
-    # Create install location
-    dry_run_exec mkdir -p "$location"
+    # Convert paths to Windows format
+    local win_install_location="C:\\WSL\\$name"
+    local win_tar_path=$(wslpath -w "$tarball")
     
     # Import the distribution
     progress "Importing distribution..."
-    if ! dry_run_exec wsl.exe --import "$name" "$location" "$tarball"; then
+    verbose "Windows install location: $win_install_location"
+    verbose "Windows tar path: $win_tar_path"
+    
+    if ! dry_run_exec wsl.exe --import "$name" "$win_install_location" "$win_tar_path" --version 2; then
         error "Failed to import distribution"
         return 1
     fi
@@ -343,9 +359,11 @@ install_wsl() {
     # Show post-install instructions
     echo
     echo "To complete the setup:"
-    echo "1. Start the distribution: wsl -d $name"
+    echo "1. Start the distribution:"
+    echo "   wsl.exe -d $name --cd /"
     echo "2. Run the setup script: /root/setup-alpine-wsl.sh"
-    echo "3. Exit and restart as the default user: wsl -d $name -u alpine"
+    echo "3. Exit and restart as the default user:"
+    echo "   wsl.exe -d $name -u alpine --cd /home/alpine"
     echo
     
     return 0

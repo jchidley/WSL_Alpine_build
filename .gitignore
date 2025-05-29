@@ -59,3 +59,4 @@ settings.local.json
 # Test minimal directory artifacts
 test-minimal/*.tar
 test-minimal/*.tar.gz
+alpine-wsl.tar.gz

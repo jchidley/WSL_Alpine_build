@@ -76,3 +76,7 @@ Impact: The issue was with import parameters (paths) not the tar content - alway
 ### 2025-05-30: Modular Bash Libraries Enable Testability
 Insight: Extracting common functions into sourced libraries (common.sh, prerequisites.sh) dramatically improves testing
 Impact: Scripts become composable units - test individual functions in isolation, mock dependencies, achieve 100% coverage
+
+### 2025-05-30: WSL Path Translation Error Has Simple Fix
+Insight: WSL "Failed to translate" error when launching from another WSL can be fixed with --cd option
+Impact: Use `wsl.exe -d <distro> --cd /` or `--cd ~` to bypass path translation entirely - no Windows Terminal needed
