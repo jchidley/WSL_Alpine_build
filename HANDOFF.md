@@ -22,7 +22,5 @@ None - documentation complete, ready to implement
 ## Related Documents
 - MINIROOTFS-APPROACH.md - Complete implementation guide
 - REQUIREMENTS.md - Project requirements and design principles
-- SAFETY_IMPROVEMENTS.md - Documentation of safety measures
-- LOST_REFACTORING_CHANGES.md - Refactoring work to reapply
 - PROJECT_WISDOM.md - Technical insights and discoveries
 - CLAUDE.md - Project-specific AI instructions

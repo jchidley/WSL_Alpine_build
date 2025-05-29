@@ -2,9 +2,9 @@
 
 ## Critical Discoveries
 
-### 2025-05-28: WSL [oobe] Section Not Supported
-Insight: WSL's wsl.conf does not recognize [oobe] configuration sections
-Impact: First-boot setup must be triggered from shell profile instead
+### 2025-05-28: WSL [oobe] Section Not Supported in wsl.conf
+Insight: WSL's wsl.conf does not recognize [oobe] configuration sections - this belongs in wsl-distribution.conf
+Impact: First-boot setup configured via wsl-distribution.conf [oobe] section per Microsoft docs
 
 ### 2025-05-28: WSL Import Requires Windows Paths
 Insight: WSL --import command requires Windows-accessible paths, not Linux paths within WSL
