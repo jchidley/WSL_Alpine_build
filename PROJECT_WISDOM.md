@@ -80,3 +80,7 @@ Impact: Scripts become composable units - test individual functions in isolation
 ### 2025-05-30: WSL Path Translation Error Has Simple Fix
 Insight: WSL "Failed to translate" error when launching from another WSL can be fixed with --cd option
 Impact: Use `wsl.exe -d <distro> --cd /` or `--cd ~` to bypass path translation entirely - no Windows Terminal needed
+
+### 2025-05-30: Alpine Shell Compatibility - Use ash Not bash
+Insight: Alpine's default shell is ash (BusyBox), not bash - using bash breaks Alpine's minimalist philosophy
+Impact: Use /bin/ash for user shells, .profile instead of .bashrc, and ensure all scripts are POSIX-compatible

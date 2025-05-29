@@ -178,9 +178,12 @@ configure_wsl() {
     
     progress "Configuring Alpine for WSL..."
     
+    # Get current username
+    local username="${SUDO_USER:-$USER}"
+    
     # Create WSL configuration
     verbose "Creating /etc/wsl.conf"
-    dry_run_exec fakeroot tee "$rootfs/etc/wsl.conf" > /dev/null << 'EOF'
+    dry_run_exec fakeroot tee "$rootfs/etc/wsl.conf" > /dev/null << EOF
 [boot]
 systemd = false
 
@@ -190,7 +193,7 @@ generateHosts = true
 generateResolvConf = true
 
 [user]
-default = alpine
+default = $username
 
 [automount]
 enabled = true
@@ -219,7 +222,6 @@ echo "Installing basic packages..."
 apk add --no-cache \
     sudo \
     shadow \
-    bash \
     coreutils \
     util-linux \
     procps \
@@ -235,12 +237,16 @@ if ! grep -q "^wheel:" /etc/group; then
     addgroup -S wheel
 fi
 
+# Get the username from wsl.conf or use alpine as fallback
+USERNAME=$(grep "^default" /etc/wsl.conf 2>/dev/null | cut -d= -f2 | tr -d ' ' || echo "alpine")
+
 # Create default user if it doesn't exist
-if ! id alpine >/dev/null 2>&1; then
-    echo "Creating default user 'alpine'..."
-    adduser -D -s /bin/bash alpine
-    adduser alpine wheel
-    echo "alpine:alpine" | chpasswd
+if ! id "$USERNAME" >/dev/null 2>&1; then
+    echo "Creating default user '$USERNAME'..."
+    adduser -D -s /bin/ash "$USERNAME"
+    adduser "$USERNAME" wheel
+    # Set a temporary password (same as username)
+    echo "$USERNAME:$USERNAME" | chpasswd
     
     # Configure sudo
     echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
@@ -248,22 +254,33 @@ if ! id alpine >/dev/null 2>&1; then
 fi
 
 # Set up user home directory
-if [ ! -d /home/alpine ]; then
-    mkdir -p /home/alpine
+if [ ! -d "/home/$USERNAME" ]; then
+    mkdir -p "/home/$USERNAME"
 fi
 # Fix ownership after user is created
-chown -R alpine:alpine /home/alpine
+chown -R "$USERNAME:$USERNAME" "/home/$USERNAME"
 
-# Create .bashrc if it doesn't exist
-if [ ! -f /home/alpine/.bashrc ]; then
-    cat > /home/alpine/.bashrc << 'BASHRC'
-# Alpine Linux .bashrc for WSL
+# Create .profile if it doesn't exist
+if [ ! -f "/home/$USERNAME/.profile" ]; then
+    cat > "/home/$USERNAME/.profile" << 'PROFILE'
+# Alpine Linux .profile for WSL
 
-# If not running interactively, don't do anything
-case $- in
-    *i*) ;;
-      *) return;;
-esac
+# Check if password needs to be changed on first login
+if [ -f "$HOME/.first-login" ]; then
+    echo "Welcome to Alpine Linux on WSL!"
+    echo ""
+    echo "For security, you must change your password now."
+    passwd
+    if [ $? -eq 0 ]; then
+        rm -f "$HOME/.first-login"
+        echo ""
+        echo "Password changed successfully!"
+        echo ""
+    else
+        echo "Password change failed. Please try again."
+        exit 1
+    fi
+fi
 
 # Basic prompt
 PS1='\u@\h:\w\$ '
@@ -275,13 +292,24 @@ alias grep='grep --color=auto'
 
 # Environment
 export PATH=$PATH:/usr/local/bin
-BASHRC
-    chown alpine:alpine /home/alpine/.bashrc
+
+# If bash is installed and user wants it, they can uncomment this
+# [ -x /bin/bash ] && exec /bin/bash
+PROFILE
+    chown "$USERNAME:$USERNAME" "/home/$USERNAME/.profile"
+    
+    # Create first-login marker
+    touch "/home/$USERNAME/.first-login"
+    chown "$USERNAME:$USERNAME" "/home/$USERNAME/.first-login"
 fi
 
 echo "Setup complete! You can now use Alpine Linux in WSL."
-echo "Default user: alpine (password: alpine)"
-echo "Please change the password with: passwd"
+echo "Default user: $USERNAME (temporary password: $USERNAME)"
+echo ""
+echo "You will be prompted to change your password on first login."
+
+# Mark that setup is complete
+touch /root/.setup-complete
 EOF
 
     dry_run_exec fakeroot chmod +x "$rootfs/root/setup-alpine-wsl.sh"
@@ -356,15 +384,25 @@ install_wsl() {
     
     success "Distribution installed successfully!"
     
-    # Show post-install instructions
+    # Get current username
+    local username="${SUDO_USER:-$USER}"
+    
+    # Run the setup script automatically
     echo
-    echo "To complete the setup:"
-    echo "1. Start the distribution:"
-    echo "   wsl.exe -d $name --cd /"
-    echo "2. Run the setup script: /root/setup-alpine-wsl.sh"
-    echo "3. Exit and restart as the default user:"
-    echo "   wsl.exe -d $name -u alpine --cd /home/alpine"
+    progress "Running initial setup..."
+    if ! dry_run_exec wsl.exe -d "$name" --cd / -e /root/setup-alpine-wsl.sh; then
+        error "Setup script failed"
+        return 1
+    fi
+    
+    # Launch as the user
     echo
+    success "Alpine Linux is ready!"
+    echo
+    echo "To start using Alpine Linux:"
+    echo "  wsl.exe -d $name -u $username --cd /home/$username"
+    echo
+    echo "You will be prompted to change your password on first login."
     
     return 0
 }
