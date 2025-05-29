@@ -52,3 +52,7 @@ Impact: CRITICAL - Must use exit traps, multiple cleanup fallbacks, and system i
 ### 2025-05-29: Alpine-chroot-install Is Wrong Tool for WSL Distributions
 Insight: alpine-chroot-install is designed for temporary CI/testing environments, not for building distributable images
 Impact: Should use Alpine's official minirootfs tarballs instead - no bind mounts, no host risk, proper method for custom distributions
+
+### 2025-05-29: WSL Tar Format Requires Specific Flags
+Insight: Microsoft recommends `tar --numeric-owner --absolute-names -c * | gzip` for WSL distributions
+Impact: Using wrong tar flags can cause WSL import failures - must follow Microsoft's exact format for compatibility

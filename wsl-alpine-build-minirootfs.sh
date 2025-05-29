@@ -10,7 +10,7 @@ ARCH="${ARCH:-x86_64}"
 BUILD_DIR="${BUILD_DIR:-alpine-wsl-build}"
 ROOTFS_DIR="${ROOTFS_DIR:-$BUILD_DIR/rootfs}"
 DISTRO_NAME="${DISTRO_NAME:-alpine-wsl}"
-INSTALL_LOCATION="${INSTALL_LOCATION:-$HOME/WSL/AlpineWSL}"
+INSTALL_LOCATION="${INSTALL_LOCATION:-/tmp/wsl-alpine-install}"
 OUTPUT_FILE="${OUTPUT_FILE:-alpine-wsl.tar.gz}"
 
 # Color codes for output
@@ -383,7 +383,7 @@ package_distribution() {
     progress "Packaging distribution..."
     
     cd "$ROOTFS_DIR"
-    tar --numeric-owner --absolute-names -czf "../$OUTPUT_FILE" * || {
+    tar --numeric-owner --absolute-names -c * | gzip --fast > "../$OUTPUT_FILE" || {
         error "Failed to create distribution package"
         return 1
     }
@@ -451,6 +451,12 @@ import_to_wsl() {
 main() {
     print_banner
     
+    # Check for --no-import flag
+    local skip_import=false
+    if [[ "$1" == "--no-import" ]]; then
+        skip_import=true
+    fi
+    
     # Check prerequisites
     check_prerequisites
     
@@ -475,7 +481,11 @@ main() {
     package_distribution
     
     # Import to WSL
-    import_to_wsl
+    if [ "$skip_import" = false ]; then
+        import_to_wsl
+    else
+        warning "Skipping WSL import (--no-import flag)"
+    fi
     
     # Clean up
     cd - > /dev/null
@@ -485,6 +495,12 @@ main() {
     echo "Distribution files saved in: $BUILD_DIR/"
     echo "  - $OUTPUT_FILE (WSL import format)"
     echo "  - ${OUTPUT_FILE%.tar.gz}.wsl (double-click install)"
+    
+    if [ "$skip_import" = true ]; then
+        echo ""
+        echo "To import manually, run:"
+        echo "  wsl.exe --import <name> <install-location> $BUILD_DIR/$OUTPUT_FILE"
+    fi
 }
 
 # Run main function

@@ -300,9 +300,9 @@ apk --root "$ROOTFS_DIR" --arch "$ARCH" add \
 ### Step 5: Package for WSL
 
 ```bash
-# Package the distribution with required flags
+# Package the distribution following Microsoft's recommended format
 cd "$ROOTFS_DIR"
-tar --numeric-owner --absolute-names -czf ../alpine-wsl.tar.gz *
+tar --numeric-owner --absolute-names -c * | gzip --fast > ../alpine-wsl.tar.gz
 
 # Verify the package
 cd ..
@@ -312,6 +312,12 @@ tar -tzf alpine-wsl.tar.gz | head -20
 # Optional: Create .wsl file for double-click install
 cp alpine-wsl.tar.gz alpine-wsl.wsl
 ```
+
+Note: The tar command uses Microsoft's recommended flags:
+- `--numeric-owner`: Ensures numeric UIDs/GIDs are preserved
+- `--absolute-names`: Preserves absolute pathnames
+- `-c *`: Creates archive from all files in current directory
+- `gzip --fast`: Fast compression for quicker build times
 
 ### Step 6: Import into WSL
 
@@ -451,9 +457,31 @@ wsl.exe -d alpine-wsl -u root visudo -c
 4. **Compliance**: Follows Microsoft's WSL distribution guidelines
 5. **Reproducibility**: Easy to script and automate
 
+## Automated Build Script
+
+An automated script `wsl-alpine-build-minirootfs.sh` is now available that implements this entire process:
+
+```bash
+# Basic usage
+./wsl-alpine-build-minirootfs.sh
+
+# Build without automatic WSL import
+./wsl-alpine-build-minirootfs.sh --no-import
+
+# Customize build with environment variables
+ALPINE_VERSION=3.19.0 DISTRO_NAME=my-alpine ./wsl-alpine-build-minirootfs.sh
+```
+
+The script features:
+- Automatic download and verification of Alpine minirootfs
+- Safe build process without dangerous bind mounts
+- Progress indicators and error handling
+- Optional WSL import with conflict detection
+- Configurable through environment variables
+
 ## Next Steps
 
-- Create a script to automate this build process
 - Add CI/CD pipeline for regular updates
 - Customize for specific development environments
+- Test with different Alpine versions
 - Share with the Alpine/WSL community
