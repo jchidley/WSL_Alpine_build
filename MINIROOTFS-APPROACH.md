@@ -181,6 +181,130 @@ EOF
 wsl.exe --terminate AlpineMinirootFS
 ```
 
+## Microsoft's Official Requirements
+
+According to Microsoft's documentation for building custom WSL distributions:
+
+### Required Configuration Files
+
+1. **`/etc/wsl.conf`** - Local system settings (documented above)
+2. **`/etc/wsl-distribution.conf`** - First-launch configuration including:
+   - Default distribution name
+   - OOBE (Out-of-Box Experience) script path
+
+### Packaging Requirements
+
+1. **Root Filesystem Archive**
+   - Must use `tar --numeric-owner --absolute-names`
+   - Archive root must be filesystem root (not a subdirectory)
+   - Can use `.tar.gz` for import or `.wsl` for double-click install
+
+2. **User Configuration**
+   - Default user should have UID 1000
+   - Root user must exist in `/etc/passwd`
+   - Avoid including `/etc/resolv.conf` (WSL generates it)
+
+3. **First-Boot Setup (OOBE)**
+   - Script specified in `/etc/wsl-distribution.conf`
+   - Should create default user
+   - Handle any first-time setup tasks
+
+### Example WSL-Distribution.conf
+
+```ini
+[oobe]
+default = alpine-wsl
+command = /etc/oobe.sh
+```
+
+### Enhanced Step 3: Configure for WSL Compliance
+
+```bash
+# Create WSL configuration
+cat > etc/wsl.conf << 'EOF'
+[automount]
+enabled = true
+options = "metadata,umask=22,fmask=11"
+mountFsTab = true
+root = /mnt/
+
+[network]
+generateHosts = true
+generateResolvConf = true
+
+[interop]
+enabled = true
+appendWindowsPath = true
+
+[boot]
+systemd = false
+command = /sbin/openrc boot
+EOF
+
+# Create WSL distribution configuration
+cat > etc/wsl-distribution.conf << 'EOF'
+[oobe]
+default = alpine-wsl
+command = /etc/oobe.sh
+EOF
+
+# Create OOBE script for first boot
+cat > etc/oobe.sh << 'EOF'
+#!/bin/sh
+# Alpine WSL Out-of-Box Experience
+
+# Check if already run
+if [ -f /etc/oobe.done ]; then
+    exit 0
+fi
+
+echo "Welcome to Alpine Linux for WSL!"
+echo "Running first-time setup..."
+
+# Update packages
+apk update
+apk upgrade
+
+# Install additional packages
+apk add --no-cache \
+    tree-sitter-markdown@testing \
+    tree-sitter-css \
+    tree-sitter-html \
+    tree-sitter-javascript \
+    tree-sitter-typescript \
+    tree-sitter-python \
+    tree-sitter-rust \
+    tree-sitter-c
+
+# Create default user (UID 1000 as recommended)
+adduser -D -u 1000 -s /bin/bash -h /home/wsluser wsluser
+addgroup wsluser wheel
+echo "wsluser ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/wsluser
+
+# Configure default user in wsl.conf
+cat >> /etc/wsl.conf << WSLEOF
+[user]
+default = wsluser
+WSLEOF
+
+# Mark as complete
+touch /etc/oobe.done
+
+echo "First-time setup complete!"
+echo "The distribution will now restart with the default user."
+echo "Please run: wsl.exe --terminate alpine-wsl && wsl.exe -d alpine-wsl"
+EOF
+chmod +x etc/oobe.sh
+
+# Ensure root exists in passwd
+cat > etc/passwd << 'EOF'
+root:x:0:0:root:/root:/bin/ash
+EOF
+
+# Remove resolv.conf to let WSL generate it
+rm -f etc/resolv.conf
+```
+
 ## Comparison with Current Approach
 
 | Aspect | alpine-chroot-install | MinirootFS |
