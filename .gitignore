@@ -42,9 +42,12 @@ Thumbs.db
 test-results/
 coverage/
 
-# Session/temporary documentation
-SESSION_*.md
-*_SESSION.md
+# Session/temporary documentation (in root only)
+/SESSION_*.md
+/*_SESSION.md
+# But keep sessions in the sessions/ directory
+!sessions/SESSION_*.md
+!sessions/*_SESSION.md
 
 # Personal notes (but keep project-specific docs)
 personal-notes.md
