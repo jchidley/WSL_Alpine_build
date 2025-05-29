@@ -4,6 +4,17 @@
 
 set -euo pipefail
 
+# Debug mode
+DEBUG=${DEBUG:-0}
+VERBOSE=${VERBOSE:-0}
+DRY_RUN=${DRY_RUN:-0}
+
+# Enable debug output if requested
+if [ "$DEBUG" -eq 1 ]; then
+    set -x
+    export PS4='+ [${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]:+${FUNCNAME[0]}()}] '
+fi
+
 # Default configuration
 ALPINE_VERSION="${ALPINE_VERSION:-3.18.6}"
 ARCH="${ARCH:-x86_64}"
@@ -23,6 +34,17 @@ NC='\033[0m'
 # Progress indicator
 progress() {
     echo -e "${BLUE}→${NC} $1"
+    [ "$VERBOSE" -eq 1 ] && echo "[$(date '+%Y-%m-%d %H:%M:%S')] PROGRESS: $1" >&2
+}
+
+# Debug message
+debug() {
+    [ "$DEBUG" -eq 1 ] && echo -e "${YELLOW}[DEBUG]${NC} $1" >&2
+}
+
+# Verbose message
+verbose() {
+    [ "$VERBOSE" -eq 1 ] && echo -e "${BLUE}[VERBOSE]${NC} $1" >&2
 }
 
 # Success message
@@ -50,12 +72,26 @@ cleanup() {
 
 # Error handler
 on_error() {
-    error "Build failed on line $1"
+    local line=$1
+    local code=${2:-1}
+    local cmd="${BASH_COMMAND}"
+    error "Build failed on line $line"
+    error "Failed command: $cmd"
+    error "Exit code: $code"
+    
+    if [ "$DEBUG" -eq 1 ]; then
+        echo "Call stack:" >&2
+        local frame=0
+        while caller $frame; do
+            ((frame++))
+        done
+    fi
+    
     cleanup
-    exit 1
+    exit $code
 }
 
-trap 'on_error $LINENO' ERR
+trap 'on_error $LINENO $?' ERR
 
 # Print banner
 print_banner() {
@@ -63,6 +99,17 @@ print_banner() {
     echo "║     Alpine Linux WSL Distribution Builder    ║"
     echo "║         (Safe MinirootFS Method)             ║"
     echo "╚══════════════════════════════════════════════╝"
+    echo ""
+    
+    if [ "$DEBUG" -eq 1 ]; then
+        echo "Debug mode: ENABLED"
+    fi
+    if [ "$VERBOSE" -eq 1 ]; then
+        echo "Verbose mode: ENABLED"
+    fi
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Dry run mode: ENABLED (no changes will be made)"
+    fi
     echo ""
 }
 
@@ -81,13 +128,13 @@ check_prerequisites() {
     # Check for wsl.exe
     if ! command -v wsl.exe &> /dev/null; then
         error "wsl.exe not found. This script must be run from within WSL."
-        exit 1
+        return 1
     fi
     
     if [ ${#missing[@]} -ne 0 ]; then
         error "Missing required commands: ${missing[*]}"
         echo "Please install them and try again."
-        exit 1
+        return 1
     fi
     
     success "All prerequisites found"
@@ -104,11 +151,17 @@ download_minirootfs() {
     # Download minirootfs
     if [ -f "$filename" ]; then
         warning "Using existing $filename"
+        verbose "File size: $(du -h "$filename" | cut -f1)"
     else
-        wget -q --show-progress "$base_url/$filename" || {
-            error "Failed to download minirootfs"
-            return 1
-        }
+        verbose "Downloading from: $base_url/$filename"
+        if [ "$DRY_RUN" -eq 1 ]; then
+            echo "[DRY RUN] Would download: $base_url/$filename"
+        else
+            wget -q --show-progress "$base_url/$filename" || {
+                error "Failed to download minirootfs"
+                return 1
+            }
+        fi
     fi
     
     # Download and verify checksum
@@ -130,7 +183,15 @@ download_minirootfs() {
 extract_rootfs() {
     progress "Extracting root filesystem..."
     
+    debug "Creating rootfs directory: $ROOTFS_DIR"
     mkdir -p "$ROOTFS_DIR"
+    
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "[DRY RUN] Would extract to: $ROOTFS_DIR"
+        return 0
+    fi
+    
+    verbose "Extracting $(tar -tzf "alpine-minirootfs-${ALPINE_VERSION}-${ARCH}.tar.gz" | wc -l) files..."
     tar -xzf "alpine-minirootfs-${ALPINE_VERSION}-${ARCH}.tar.gz" -C "$ROOTFS_DIR" || {
         error "Failed to extract minirootfs"
         return 1
@@ -149,6 +210,12 @@ extract_rootfs() {
 configure_apk() {
     progress "Configuring APK repositories..."
     
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "[DRY RUN] Would configure APK repositories"
+        return 0
+    fi
+    
+    debug "Writing to $ROOTFS_DIR/etc/apk/repositories"
     cat > "$ROOTFS_DIR/etc/apk/repositories" << EOF
 https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION%.*}/main
 https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION%.*}/community
@@ -162,6 +229,12 @@ EOF
 configure_wsl() {
     progress "Configuring WSL settings..."
     
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "[DRY RUN] Would create WSL configuration files"
+        return 0
+    fi
+    
+    debug "Creating $ROOTFS_DIR/etc/wsl.conf"
     # Create wsl.conf
     cat > "$ROOTFS_DIR/etc/wsl.conf" << 'EOF'
 [automount]
@@ -197,6 +270,12 @@ EOF
 create_oobe_script() {
     progress "Creating first-boot setup script..."
     
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "[DRY RUN] Would create OOBE script"
+        return 0
+    fi
+    
+    debug "Creating $ROOTFS_DIR/etc/oobe.sh"
     cat > "$ROOTFS_DIR/etc/oobe.sh" << 'EOF'
 #!/bin/sh
 # Alpine WSL Out-of-Box Experience
@@ -382,6 +461,12 @@ EOF
 package_distribution() {
     progress "Packaging distribution..."
     
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "[DRY RUN] Would create distribution package: $BUILD_DIR/$OUTPUT_FILE"
+        return 0
+    fi
+    
+    verbose "Creating package script for fakeroot"
     # Create a script to run under fakeroot
     cat > "$BUILD_DIR/fakeroot-package.sh" << EOF
 #!/bin/bash
@@ -438,6 +523,16 @@ import_to_wsl() {
     
     # Import the distribution
     progress "Importing to WSL (this may take a moment)..."
+    
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "[DRY RUN] Would import:"
+        echo "  Name: $DISTRO_NAME"
+        echo "  Location: $win_install_location"
+        echo "  Archive: $win_tar_path"
+        return 0
+    fi
+    
+    debug "Running: wsl.exe --import '$DISTRO_NAME' '$win_install_location' '$win_tar_path' --version 2"
     if wsl.exe --import "$DISTRO_NAME" "$win_install_location" "$win_tar_path" --version 2; then
         success "Distribution imported successfully"
     else
@@ -459,15 +554,195 @@ import_to_wsl() {
     fi
 }
 
+# Run self-tests
+run_tests() {
+    echo "Running self-tests..."
+    echo ""
+    
+    local tests_passed=0
+    local tests_failed=0
+    
+    # Test 1: Prerequisites check
+    echo -n "Test 1: Checking prerequisites... "
+    if output=$(check_prerequisites 2>&1); then
+        echo -e "${GREEN}PASS${NC}"
+        ((tests_passed++))
+    else
+        echo -e "${RED}FAIL${NC}"
+        echo "  Error: $output"
+        ((tests_failed++))
+    fi
+    
+    # Test 2: URL validation
+    echo -n "Test 2: Validating Alpine mirror URLs... "
+    local test_url="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION%.*}/releases/${ARCH}/"
+    if curl -Is --connect-timeout 5 --max-time 10 "$test_url" 2>/dev/null | head -n 1 | grep -q "200\|301\|302"; then
+        echo -e "${GREEN}PASS${NC}"
+        ((tests_passed++))
+    else
+        echo -e "${RED}FAIL${NC} (URL: $test_url)"
+        ((tests_failed++))
+    fi
+    
+    # Test 3: Build directory permissions
+    echo -n "Test 3: Testing build directory permissions... "
+    local test_dir="/tmp/alpine-wsl-test-$$"
+    if mkdir -p "$test_dir" && touch "$test_dir/test" && rm -rf "$test_dir"; then
+        echo -e "${GREEN}PASS${NC}"
+        ((tests_passed++))
+    else
+        echo -e "${RED}FAIL${NC}"
+        ((tests_failed++))
+    fi
+    
+    # Test 4: WSL environment detection
+    echo -n "Test 4: Detecting WSL environment... "
+    if [ -f /proc/sys/fs/binfmt_misc/WSLInterop ]; then
+        echo -e "${GREEN}PASS${NC} (WSL2 detected)"
+        ((tests_passed++))
+    elif command -v wsl.exe &>/dev/null; then
+        echo -e "${GREEN}PASS${NC} (WSL1 detected)"
+        ((tests_passed++))
+    else
+        echo -e "${RED}FAIL${NC} (Not running in WSL)"
+        ((tests_failed++))
+    fi
+    
+    # Test 5: Fakeroot functionality
+    echo -n "Test 5: Testing fakeroot... "
+    if echo 'touch /test 2>/dev/null && echo OK || echo FAIL' | fakeroot sh | grep -q OK; then
+        echo -e "${GREEN}PASS${NC}"
+        ((tests_passed++))
+    else
+        echo -e "${RED}FAIL${NC}"
+        ((tests_failed++))
+    fi
+    
+    echo ""
+    echo "Test Results: ${GREEN}$tests_passed passed${NC}, ${RED}$tests_failed failed${NC}"
+    
+    if [ $tests_failed -gt 0 ]; then
+        error "Some tests failed. Please fix the issues before proceeding."
+        return 1
+    fi
+    
+    success "All tests passed!"
+    return 0
+}
+
+# Validate configuration
+validate_config() {
+    debug "Validating configuration..."
+    
+    # Check Alpine version format
+    if ! [[ "$ALPINE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        error "Invalid Alpine version format: $ALPINE_VERSION"
+        error "Expected format: X.Y.Z (e.g., 3.18.6)"
+        return 1
+    fi
+    
+    # Check architecture
+    case "$ARCH" in
+        x86_64|x86|aarch64|armhf|armv7|ppc64le|s390x)
+            debug "Architecture $ARCH is supported"
+            ;;
+        *)
+            error "Unsupported architecture: $ARCH"
+            return 1
+            ;;
+    esac
+    
+    # Validate paths
+    if [[ "$BUILD_DIR" = /* ]]; then
+        warning "Using absolute path for BUILD_DIR: $BUILD_DIR"
+    fi
+    
+    # Check distro name
+    if [[ ! "$DISTRO_NAME" =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]]; then
+        error "Invalid distribution name: $DISTRO_NAME"
+        error "Name must start with a letter and contain only alphanumeric characters, hyphens, and underscores"
+        return 1
+    fi
+    
+    verbose "Configuration validated successfully"
+    return 0
+}
+
 # Main build process
 main() {
     print_banner
     
-    # Check for --no-import flag
+    # Parse command line arguments
     local skip_import=false
-    if [[ "${1:-}" == "--no-import" ]]; then
-        skip_import=true
+    local run_tests=false
+    local show_help=false
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --no-import)
+                skip_import=true
+                shift
+                ;;
+            --test)
+                run_tests=true
+                shift
+                ;;
+            --debug)
+                DEBUG=1
+                set -x
+                shift
+                ;;
+            --verbose|-v)
+                VERBOSE=1
+                shift
+                ;;
+            --dry-run)
+                DRY_RUN=1
+                shift
+                ;;
+            --help|-h)
+                show_help=true
+                shift
+                ;;
+            *)
+                error "Unknown option: $1"
+                show_help=true
+                shift
+                ;;
+        esac
+    done
+    
+    # Show help if requested
+    if [ "$show_help" = true ]; then
+        echo "Usage: $0 [OPTIONS]"
+        echo ""
+        echo "Options:"
+        echo "  --no-import    Build the distribution but don't import to WSL"
+        echo "  --test         Run self-tests and exit"
+        echo "  --debug        Enable debug output (set -x)"
+        echo "  --verbose, -v  Enable verbose output"
+        echo "  --dry-run      Show what would be done without making changes"
+        echo "  --help, -h     Show this help message"
+        echo ""
+        echo "Environment variables:"
+        echo "  ALPINE_VERSION  Alpine version (default: 3.18.6)"
+        echo "  ARCH            Architecture (default: x86_64)"
+        echo "  BUILD_DIR       Build directory (default: alpine-wsl-build)"
+        echo "  DISTRO_NAME     WSL distribution name (default: alpine-wsl)"
+        echo "  DEBUG           Enable debug mode (0/1)"
+        echo "  VERBOSE         Enable verbose mode (0/1)"
+        echo "  DRY_RUN         Enable dry run mode (0/1)"
+        return 0
     fi
+    
+    # Run tests if requested
+    if [ "$run_tests" = true ]; then
+        run_tests
+        return $?
+    fi
+    
+    # Validate configuration
+    validate_config || return 1
     
     # Check prerequisites
     check_prerequisites
@@ -517,3 +792,4 @@ main() {
 
 # Run main function
 main "$@"
+exit $?
