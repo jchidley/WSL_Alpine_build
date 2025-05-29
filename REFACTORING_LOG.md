@@ -1,5 +1,69 @@
 # REFACTORING_LOG.md - WSL Alpine Build Script Refactoring
 
+## Session 2025-05-29: Test Cleanup Script Refactoring
+
+### Key Accomplishments
+- Completed refactoring of `wsl-alpine-test-cleanup.sh` to use common functions
+- Replaced all custom logging with standardized logging functions (log_info, log_error, etc.)
+- Replaced WSL distribution operations with common functions
+- Simplified distribution processing logic
+- Tested refactored script successfully
+
+### Technical Changes
+
+#### Logging Improvements
+```bash
+# Before:
+echo "Scanning for WSL distributions..."
+echo "Error: wsl.exe not found"
+
+# After:
+log_info "Scanning for WSL distributions..."
+log_error "wsl.exe not found"
+```
+
+#### WSL Operations Refactoring
+```bash
+# Before:
+WSL_LIST=$($WSL_EXE --list --verbose 2>/dev/null | tr -d '\0\r')
+$WSL_EXE --unregister "$DISTRO"
+
+# After:
+WSL_LIST=$(get_wsl_distributions)
+unregister_distribution "$DISTRO"
+```
+
+#### Directory Cleanup Refactoring
+```bash
+# Before:
+if [ -x "$CHROOT_DIR/destroy" ]; then
+    sudo "$CHROOT_DIR/destroy" -r
+else
+    sudo rm -rf "$CHROOT_DIR"
+fi
+
+# After:
+cleanup_chroot_dir "$CHROOT_DIR"
+```
+
+#### File Cleanup Refactoring
+```bash
+# Before:
+if [ -f ~/alpine.wsl.gz ]; then
+    rm ~/alpine.wsl.gz
+    echo "Removed ~/alpine.wsl.gz"
+fi
+
+# After:
+safe_remove_file ~/alpine.wsl.gz "WSL distribution archive"
+```
+
+### Benefits Achieved
+- **Consistency**: All scripts now use the same logging and operation patterns
+- **Maintainability**: Common logic centralized in one place
+- **Reliability**: Common functions include proper error handling
+- **User Experience**: Consistent emoji-based logging across all scripts
+
 ## Session 2025-05-28: Major Script Refactoring and Bug Fixes
 
 ### Key Accomplishments

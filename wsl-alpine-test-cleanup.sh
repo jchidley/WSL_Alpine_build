@@ -14,7 +14,7 @@ if ! find_wsl_exe; then
 fi
 
 # Default pattern for test distributions created by test-wsl-alpine-build.sh
-TEST_PATTERN="alp-test-[0-9]+"
+TEST_PATTERN="$TEST_DISTRIBUTION_PATTERN"
 
 # Process command line arguments
 REMOVE_DIRS=true
@@ -52,14 +52,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     -p|--pattern)
       if [[ -z "$2" || "$2" == -* ]]; then
-        echo "Error: --pattern requires an argument"
+        log_error "--pattern requires an argument"
         exit 1
       fi
       TEST_PATTERN="$2"
       shift 2
       ;;
     *)
-      echo "Unknown option: $1"
+      log_error "Unknown option: $1"
       print_usage
       exit 1
       ;;
@@ -70,18 +70,18 @@ done
 # Test distributions use a standard location at /tmp/distribution-name
 
 # Get list of WSL distributions
-echo "Scanning for WSL distributions..."
-WSL_LIST=$($WSL_EXE --list --verbose 2>/dev/null | tr -d '\0\r')
+log_info "Scanning for WSL distributions..."
+WSL_LIST=$(get_wsl_distributions)
 
-# Filter distributions based on pattern or show all
+# Filter distributions based on pattern
 if [[ "$ALL_DISTRIBUTIONS" = true ]]; then
-  echo "Showing all WSL distributions:"
+  log_info "Showing all WSL distributions:"
   echo "$WSL_LIST"
 else
-  echo "Showing test WSL distributions (matching pattern: $TEST_PATTERN):"
+  log_info "Showing test WSL distributions (matching pattern: $TEST_PATTERN):"
   MATCHING=$(echo "$WSL_LIST" | grep -E "$TEST_PATTERN" || echo "")
   if [[ -z "$MATCHING" ]]; then
-    echo "No matching distributions found."
+    log_info "No matching distributions found."
     exit 0
   else
     echo "$MATCHING"
@@ -90,93 +90,65 @@ fi
 
 # Extract and process distributions
 echo
-echo "Cleaning up distributions..."
+log_progress "Cleaning up distributions..."
 
 if [[ "$ALL_DISTRIBUTIONS" = true ]]; then
   # Process all distributions (but still only focus on test distributions)
   # This is a way to show all WSL distributions but only act on test ones
-  echo "Note: Even with --all option, only test distributions (alp-test-*) will be removed"
-  tail -n +2 <<< "$WSL_LIST" | while IFS= read -r line; do
-    if [[ "$line" =~ [[:space:]]*([^[:space:]]+) ]]; then
-      DISTRO="${BASH_REMATCH[1]}"
-      # Skip Windows entries
-      if [[ "$DISTRO" != "Windows" && -n "$DISTRO" ]]; then
-        # Only remove test distributions
-        if ! [[ "$DISTRO" =~ alp-test- ]]; then
-          echo "Skipping non-test distribution: $DISTRO"
-          continue
-        fi
-        
-        echo "Unregistering test distribution: $DISTRO..."
-        $WSL_EXE --unregister "$DISTRO"
-        
-        if [[ "$REMOVE_DIRS" = true ]]; then
-          # Get the real user's home directory
-          REAL_HOME=$(get_real_home)
-          
-          # For distributions, use the default /tmp/distribution-name pattern
-          CHROOT_DIR="/tmp/$DISTRO"
-          
-          echo "Removing chroot directory: $CHROOT_DIR"
-          if [ -d "$CHROOT_DIR" ]; then
-            if [ -x "$CHROOT_DIR/destroy" ]; then
-              sudo "$CHROOT_DIR/destroy" -r
-            else
-              sudo rm -rf "$CHROOT_DIR"
-            fi
-          fi
-          
-          # Also remove WSL installation directory
-          cleanup_wsl_dirs "$DISTRO"
-        fi
-      fi
+  log_warning "Note: Even with --all option, only test distributions ($TEST_DISTRIBUTION_PREFIX*) will be removed"
+  
+  while IFS= read -r DISTRO; do
+    # Skip empty lines and header
+    if [[ -z "$DISTRO" || "$DISTRO" == "NAME" ]]; then
+      continue
     fi
-  done
+    
+    # Only remove test distributions
+    if ! [[ "$DISTRO" =~ $TEST_PATTERN ]]; then
+      log_info "Skipping non-test distribution: $DISTRO"
+      continue
+    fi
+    
+    # Unregister the distribution
+    unregister_distribution "$DISTRO"
+    
+    if [[ "$REMOVE_DIRS" = true ]]; then
+      # For test distributions, use the default /tmp/distribution-name pattern
+      CHROOT_DIR="/tmp/$DISTRO"
+      
+      # Clean up chroot directory
+      cleanup_chroot_dir "$CHROOT_DIR"
+      
+      # Also remove WSL installation directory
+      cleanup_wsl_dirs "$DISTRO"
+    fi
+  done <<< "$WSL_LIST"
 else
   # Process only matching distributions
-  grep -E "$TEST_PATTERN" <<< "$WSL_LIST" | while IFS= read -r line; do
-    if [[ "$line" =~ [[:space:]]*([^[:space:]]+) ]]; then
-      DISTRO="${BASH_REMATCH[1]}"
-      # Skip header lines and the main distribution
-      if [[ "$DISTRO" != "NAME" && "$DISTRO" != "Windows" && -n "$DISTRO" ]]; then
-        # Skip any non-test distributions when not in "all" mode
-        if ! [[ "$DISTRO" =~ alp-test- ]]; then
-          echo "Skipping non-test distribution: $DISTRO"
-          continue
-        fi
-        
-        echo "Unregistering test distribution: $DISTRO..."
-        $WSL_EXE --unregister "$DISTRO"
-        
-        if [[ "$REMOVE_DIRS" = true ]]; then
-          # Get the real user's home directory
-          REAL_HOME=$(get_real_home)
-          
-          # For test distributions, use the default /tmp/distribution-name pattern
-          CHROOT_DIR="/tmp/$DISTRO"
-          
-          echo "Removing chroot directory: $CHROOT_DIR"
-          if [ -d "$CHROOT_DIR" ]; then
-            if [ -x "$CHROOT_DIR/destroy" ]; then
-              sudo "$CHROOT_DIR/destroy" -r
-            else
-              sudo rm -rf "$CHROOT_DIR"
-            fi
-          fi
-          
-          # Also remove WSL installation directory
-          cleanup_wsl_dirs "$DISTRO"
-        fi
-      fi
+  while IFS= read -r DISTRO; do
+    # Skip empty lines
+    if [[ -z "$DISTRO" ]]; then
+      continue
     fi
-  done
+    
+    # Unregister the distribution
+    unregister_distribution "$DISTRO"
+    
+    if [[ "$REMOVE_DIRS" = true ]]; then
+      # For test distributions, use the default /tmp/distribution-name pattern
+      CHROOT_DIR="/tmp/$DISTRO"
+      
+      # Clean up chroot directory
+      cleanup_chroot_dir "$CHROOT_DIR"
+      
+      # Also remove WSL installation directory
+      cleanup_wsl_dirs "$DISTRO"
+    fi
+  done <<< "$MATCHING"
 fi
 
 # Clean up other files
-echo "Removing temporary files..."
-if [ -f ~/alpine.wsl.gz ]; then
-  rm ~/alpine.wsl.gz
-  echo "Removed ~/alpine.wsl.gz"
-fi
+log_progress "Removing temporary files..."
+safe_remove_file ~/alpine.wsl.gz "WSL distribution archive"
 
-echo "Cleanup completed!"
+log_success "Cleanup completed!"
