@@ -72,3 +72,7 @@ Impact: Must use fakeroot when creating tar to preserve root ownership without n
 ### 2025-05-29: Debugging WSL Import - Test Everything
 Insight: Even vanilla Alpine minirootfs and exported WSL distributions failed with same error
 Impact: The issue was with import parameters (paths) not the tar content - always test with known-good files first
+
+### 2025-05-30: Modular Bash Libraries Enable Testability
+Insight: Extracting common functions into sourced libraries (common.sh, prerequisites.sh) dramatically improves testing
+Impact: Scripts become composable units - test individual functions in isolation, mock dependencies, achieve 100% coverage
