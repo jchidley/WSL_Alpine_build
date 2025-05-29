@@ -44,3 +44,7 @@ Impact: Must pipe through 'iconv -f UTF-16LE -t UTF-8' before processing with gr
 ### 2025-05-29: Slash Commands are Documentation Templates
 Insight: Claude Code slash commands (like /req) show documentation but don't execute automatically
 Impact: Claude must implement the logic described in the command documentation, not expect automatic execution
+
+### 2025-05-29: Alpine-chroot-install Bind Mounts Are Dangerous
+Insight: alpine-chroot-install bind-mounts /dev, /proc, /sys which can corrupt host if cleanup fails
+Impact: CRITICAL - Must use exit traps, multiple cleanup fallbacks, and system integrity checks to prevent catastrophic /dev corruption
