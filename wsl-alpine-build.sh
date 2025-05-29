@@ -19,8 +19,64 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common-functions.sh"
 
+# Cleanup function to ensure mounts are properly unmounted
+cleanup_on_exit() {
+  local exit_code=$?
+  if [ -n "$CHROOT_DIR" ] && [ -d "$CHROOT_DIR" ]; then
+    echo "🧹 Performing cleanup..."
+    # Check if any mounts exist
+    if mount | grep -q "$CHROOT_DIR"; then
+      echo "⚠️  Unmounting chroot filesystems..."
+      # Try using the destroy script first if it exists
+      if [ -x "$CHROOT_DIR/destroy" ]; then
+        $SUDO "$CHROOT_DIR/destroy" 2>/dev/null || true
+      else
+        # Manual unmount as fallback
+        for mount_point in "$CHROOT_DIR/sys/fs/cgroup" "$CHROOT_DIR/dev/pts" "$CHROOT_DIR/dev/shm" "$CHROOT_DIR/proc" "$CHROOT_DIR/sys" "$CHROOT_DIR/dev" "$CHROOT_DIR/home"; do
+          if mount | grep -q "$mount_point"; then
+            $SUDO umount "$mount_point" 2>/dev/null || true
+          fi
+        done
+      fi
+    fi
+    # Only remove directory if we failed
+    if [ $exit_code -ne 0 ] && [ "$1" != "keep" ]; then
+      echo "⚠️  Removing incomplete chroot directory..."
+      $SUDO rm -rf "$CHROOT_DIR" 2>/dev/null || true
+    fi
+  fi
+  # Ensure /dev devices are intact
+  if [ ! -c /dev/null ]; then
+    echo "❌ CRITICAL: /dev/null is missing! Attempting to recreate..."
+    $SUDO mknod -m 666 /dev/null c 1 3 2>/dev/null || echo "Failed to recreate /dev/null - manual intervention required!"
+  fi
+  if [ ! -c /dev/random ]; then
+    echo "❌ CRITICAL: /dev/random is missing! Attempting to recreate..."
+    $SUDO mknod -m 666 /dev/random c 1 8 2>/dev/null || true
+  fi
+  if [ ! -c /dev/urandom ]; then
+    echo "❌ CRITICAL: /dev/urandom is missing! Attempting to recreate..."
+    $SUDO mknod -m 666 /dev/urandom c 1 9 2>/dev/null || true
+  fi
+}
+
+# Set trap to run cleanup on exit
+trap cleanup_on_exit EXIT
+
 # Check sudo and setup paths
 check_sudo_and_paths
+
+# Verify critical system devices exist
+echo "🔍 Verifying system integrity..."
+for device in null random urandom; do
+  if [ ! -c "/dev/$device" ]; then
+    echo "❌ Critical device /dev/$device is missing!"
+    echo "This may indicate a previous failed build corrupted the system."
+    echo "Please run: sudo mknod -m 666 /dev/$device c 1 $([ "$device" = "null" ] && echo 3 || [ "$device" = "random" ] && echo 8 || echo 9)"
+    exit 1
+  fi
+done
+echo "✅ System devices verified"
 
 # Windows path conversion utility function
 win_to_wsl_path() {
@@ -89,6 +145,25 @@ if $WSL_EXE -l | grep -q "$WSL_DISTRIBUTION_NAME"; then
 fi
 echo "✅ No conflicts found with distribution name '$WSL_DISTRIBUTION_NAME'"
 
+# Check for existing mounts that might indicate a previous failed run
+echo "🔍 Checking for existing chroot mounts..."
+if mount | grep -q "$CHROOT_DIR"; then
+  echo "⚠️  Found existing mounts for $CHROOT_DIR:"
+  mount | grep "$CHROOT_DIR"
+  echo ""
+  echo "This indicates a previous build was not cleaned up properly."
+  echo "Would you like to clean up these mounts? [Y/n]"
+  read -r response
+  if [[ ! "$response" =~ ^([nN])$ ]]; then
+    echo "🧹 Cleaning up existing mounts..."
+    cleanup_on_exit keep
+    echo "✅ Cleanup complete"
+  else
+    echo "❌ Cannot proceed with existing mounts. Please clean them up manually."
+    exit 1
+  fi
+fi
+
 # Download and verify Alpine chroot install script
 echo "🔍 Verifying Alpine chroot install script..."
 if ! echo 'ccbf65f85cdc351851f8ad025bb3e65bae4d5b06 alpine-chroot-install' | sha1sum -c 2>/dev/null; then
@@ -125,8 +200,30 @@ echo "✅ Alpine chroot environment created successfully"
 
 # unbind the various mounts for chroot: we don't want them for wsl
 echo "🔄 Cleaning up chroot mounts..."
-$CHROOT_DIR/destroy
-echo "✅ Chroot mounts cleaned up"
+# Use destroy script but don't let it fail the whole build
+if [ -x "$CHROOT_DIR/destroy" ]; then
+  $CHROOT_DIR/destroy || {
+    echo "⚠️  Destroy script failed, attempting manual unmount..."
+    # Manually unmount in reverse order
+    for mount_point in "$CHROOT_DIR/sys/fs/cgroup" "$CHROOT_DIR/dev/pts" "$CHROOT_DIR/dev/shm" "$CHROOT_DIR/proc" "$CHROOT_DIR/sys" "$CHROOT_DIR/dev" "$CHROOT_DIR/home"; do
+      if mount | grep -q "$mount_point"; then
+        $SUDO umount "$mount_point" 2>/dev/null || echo "⚠️  Failed to unmount $mount_point"
+      fi
+    done
+  }
+else
+  echo "❌ Destroy script not found at $CHROOT_DIR/destroy"
+  exit 1
+fi
+
+# Verify all mounts are cleaned up
+if mount | grep -q "$CHROOT_DIR"; then
+  echo "❌ Some mounts still exist:"
+  mount | grep "$CHROOT_DIR"
+  echo "⚠️  Manual cleanup may be required"
+else
+  echo "✅ Chroot mounts cleaned up"
+fi
 
 # Create WSL-specific directories and configuration files
 echo "⚙️ Configuring WSL-specific settings..."

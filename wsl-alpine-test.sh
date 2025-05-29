@@ -13,8 +13,58 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common-functions.sh"
 
+# Cleanup function for test environment
+cleanup_test_env() {
+  local exit_code=$?
+  echo "🧹 Cleaning up test environment..."
+  
+  # Restore original .env if we had one
+  if [ -f .env.test-backup ]; then
+    mv .env.test-backup .env
+    echo "✅ Restored original .env file"
+  elif [ -f .env ]; then
+    # Remove test .env if we created it
+    rm -f .env
+  fi
+  
+  # Only clean up test distribution if it exists and we're exiting with error
+  if [ $exit_code -ne 0 ] && [ -n "$TEST_NAME" ]; then
+    if $WSL_EXE --list 2>/dev/null | grep -q "$TEST_NAME"; then
+      echo "⚠️  Removing failed test distribution..."
+      $WSL_EXE --unregister "$TEST_NAME" 2>/dev/null || true
+    fi
+    # Clean up test files
+    [ -f "$REAL_HOME/alpine-test.wsl.gz" ] && rm -f "$REAL_HOME/alpine-test.wsl.gz"
+    # Clean up chroot
+    if [ -d "/tmp/$TEST_NAME" ]; then
+      if mount | grep -q "/tmp/$TEST_NAME"; then
+        echo "⚠️  Cleaning up test chroot mounts..."
+        for mount_point in "/tmp/$TEST_NAME/sys/fs/cgroup" "/tmp/$TEST_NAME/dev/pts" "/tmp/$TEST_NAME/dev/shm" "/tmp/$TEST_NAME/proc" "/tmp/$TEST_NAME/sys" "/tmp/$TEST_NAME/dev" "/tmp/$TEST_NAME/home"; do
+          $SUDO umount "$mount_point" 2>/dev/null || true
+        done
+      fi
+      $SUDO rm -rf "/tmp/$TEST_NAME" 2>/dev/null || true
+    fi
+  fi
+}
+
+# Set trap for cleanup
+trap cleanup_test_env EXIT
+
 # Check sudo and setup paths
 check_sudo_and_paths
+
+# Verify system integrity before testing
+echo "🔍 Verifying system integrity..."
+for device in null random urandom; do
+  if [ ! -c "/dev/$device" ]; then
+    echo "❌ Critical device /dev/$device is missing!"
+    echo "System may be corrupted from a previous failed build."
+    echo "Please fix this before running tests."
+    exit 1
+  fi
+done
+echo "✅ System devices verified"
 
 # Generate unique test name with timestamp
 TEST_TIMESTAMP=$(date +%Y%m%d%H%M%S)
