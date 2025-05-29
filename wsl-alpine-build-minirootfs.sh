@@ -72,7 +72,7 @@ check_prerequisites() {
     
     local missing=()
     
-    for cmd in wget tar gzip sha256sum; do
+    for cmd in wget tar gzip sha256sum fakeroot; do
         if ! command -v $cmd &> /dev/null; then
             missing+=($cmd)
         fi
@@ -382,12 +382,23 @@ EOF
 package_distribution() {
     progress "Packaging distribution..."
     
-    cd "$ROOTFS_DIR"
-    tar --numeric-owner --absolute-names -c * | gzip --fast > "../$OUTPUT_FILE" || {
+    # Create a script to run under fakeroot
+    cat > "$BUILD_DIR/fakeroot-package.sh" << EOF
+#!/bin/bash
+set -e
+cd "$ROOTFS_DIR"
+tar --numeric-owner -c . | gzip --fast > "../$OUTPUT_FILE"
+EOF
+    chmod +x "$BUILD_DIR/fakeroot-package.sh"
+    
+    # Run packaging under fakeroot to preserve ownership
+    fakeroot -- "$BUILD_DIR/fakeroot-package.sh" || {
         error "Failed to create distribution package"
         return 1
     }
-    cd - > /dev/null
+    
+    # Clean up
+    rm -f "$BUILD_DIR/fakeroot-package.sh"
     
     # Verify the package
     local file_count=$(tar -tzf "$BUILD_DIR/$OUTPUT_FILE" | wc -l)
@@ -421,12 +432,13 @@ import_to_wsl() {
         wsl.exe --unregister "$DISTRO_NAME"
     fi
     
-    # Create install directory
-    mkdir -p "$INSTALL_LOCATION"
+    # Convert paths to Windows format
+    local win_install_location="C:\\WSL\\$DISTRO_NAME"
+    local win_tar_path=$(wslpath -w "$BUILD_DIR/$OUTPUT_FILE")
     
     # Import the distribution
     progress "Importing to WSL (this may take a moment)..."
-    if wsl.exe --import "$DISTRO_NAME" "$INSTALL_LOCATION" "$BUILD_DIR/$OUTPUT_FILE"; then
+    if wsl.exe --import "$DISTRO_NAME" "$win_install_location" "$win_tar_path" --version 2; then
         success "Distribution imported successfully"
     else
         error "Failed to import distribution"
@@ -453,7 +465,7 @@ main() {
     
     # Check for --no-import flag
     local skip_import=false
-    if [[ "$1" == "--no-import" ]]; then
+    if [[ "${1:-}" == "--no-import" ]]; then
         skip_import=true
     fi
     
@@ -499,7 +511,7 @@ main() {
     if [ "$skip_import" = true ]; then
         echo ""
         echo "To import manually, run:"
-        echo "  wsl.exe --import <name> <install-location> $BUILD_DIR/$OUTPUT_FILE"
+        echo "  wsl.exe --import <name> C:\\WSL\\<name> \"$(wslpath -w $BUILD_DIR/$OUTPUT_FILE)\" --version 2"
     fi
 }
 
