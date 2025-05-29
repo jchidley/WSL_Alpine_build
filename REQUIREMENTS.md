@@ -499,3 +499,71 @@ Requirements Added: 2025-05-28
   - Attempt to add common Windows paths to PATH automatically
   - Only require `sudo -E` as a fallback if automatic configuration fails
   - Implemented via common-functions.sh shared by all scripts
+
+Requirements Added: 2025-05-29
+
+- [ ] REQ-51: Claude Code installation script for Alpine WSL distribution
+  - Priority: Medium
+  - Status: Proposed
+  - GitHub Issue: TBD
+  - Description: Create a script within WSL_Alpine_build project to install Claude Code inside a newly built Alpine WSL distribution
+  - Rationale: Enables users to easily add Claude Code to their Alpine WSL environment, providing AI-powered coding assistance within the isolated Alpine distribution
+  - Implementation Notes:
+    - Script should be part of the WSL_Alpine_build project (e.g., wsl-alpine-claude-code.sh)
+    - Install Claude Code using npm inside the Alpine WSL distribution
+    - Handle Node.js installation if not present in Alpine
+    - Configure proper permissions and environment variables
+    - Option to run Claude Code in Docker container within Alpine WSL for additional isolation
+    - Integration with existing Alpine WSL build process (could be optional module or post-install script)
+
+- [ ] REQ-52: Windows Terminal profile management for WSL distributions
+  - Priority: Medium
+  - Status: Proposed
+  - GitHub Issue: TBD
+  - Description: Automatically add WSL distributions to Windows Terminal profiles when created and remove them when cleaned up
+  - Rationale: Improves user experience by ensuring Windows Terminal always shows current WSL distributions without manual configuration
+  - Implementation Notes:
+    - Add function to create Windows Terminal profile during WSL import
+    - Add function to remove Windows Terminal profile during WSL unregister
+    - Profile should include custom name, icon, and color scheme
+    - Handle both stable and preview versions of Windows Terminal
+    - Store profile GUID for reliable removal during cleanup
+    - Support for both JSON and new settings UI formats
+
+- [ ] REQ-53: Comprehensive test suite for all scripts
+  - Priority: High
+  - Status: Proposed
+  - GitHub Issue: TBD
+  - Description: Create a comprehensive test suite that validates all scripts and their functions work correctly
+  - Rationale: Ensures reliability and prevents regressions as the codebase evolves, especially important after the recent refactoring to use common functions
+  - Implementation Notes:
+    - Create test framework using bash test tools (bats or similar)
+    - Test common-functions.sh thoroughly as it's the foundation for all scripts
+    - Unit tests for individual functions (logging, config loading, WSL operations)
+    - Integration tests for full script workflows (build, reset, test, cleanup)
+    - Mock WSL commands to enable testing without actual WSL environment
+    - Test error handling and edge cases (missing files, permission issues, etc.)
+    - Automated test execution in CI/CD pipeline
+    - Coverage reporting to identify untested code paths
+    - Performance tests for build process optimization
+    - Test matrix for different Alpine versions and configurations
+
+- [ ] REQ-54: Complete refactoring of all scripts to eliminate redundancy
+  - Priority: High
+  - Status: In Progress
+  - GitHub Issue: TBD
+  - Description: Refactor all scripts to use common-functions.sh and eliminate code duplication and obsolete code
+  - Rationale: Improves maintainability, reduces bugs from inconsistent implementations, and makes the codebase easier to understand and modify
+  - Implementation Notes:
+    - Continue refactoring remaining scripts (build, test, cleanup) to use common-functions.sh
+    - Remove all duplicated code blocks identified in code audit
+    - Eliminate obsolete code and commented-out sections
+    - Standardize error handling patterns across all scripts
+    - Consolidate WSL operations using shared functions
+    - Unify logging and output formatting
+    - Remove redundant PATH handling code
+    - Consolidate configuration loading logic
+    - Standardize cleanup operations
+    - Ensure consistent use of constants and naming conventions
+    - Update all scripts to follow the same structural pattern
+    - Document any script-specific functions that remain

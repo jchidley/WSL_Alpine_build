@@ -32,3 +32,15 @@ Impact: Refactored to have test script call main build script with test paramete
 ### Naming Convention
 - All scripts follow pattern: wsl-alpine-{action}.sh
 - Consistent, predictable naming improves discoverability
+
+### 2025-05-29: WSL Archive Permission Issue with Sudo
+Insight: When using sudo with output redirection (>), files are created with root ownership in root's context
+Impact: Must use 'sudo tee' pattern and fix ownership, or files end up in /root instead of user's home
+
+### 2025-05-29: WSL --list Output Encoding
+Insight: WSL --list outputs UTF-16LE encoded text that breaks simple grep patterns
+Impact: Must pipe through 'iconv -f UTF-16LE -t UTF-8' before processing with grep or other text tools
+
+### 2025-05-29: Slash Commands are Documentation Templates
+Insight: Claude Code slash commands (like /req) show documentation but don't execute automatically
+Impact: Claude must implement the logic described in the command documentation, not expect automatic execution

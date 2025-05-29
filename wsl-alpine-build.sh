@@ -242,7 +242,12 @@ EOF
 echo "📦 Packaging WSL distribution..."
 cd $CHROOT_DIR
 # Use configurable compression level
-$SUDO tar --numeric-owner --absolute-names -c * | gzip $COMPRESSION_LEVEL > "$WSL_INSTALL_PATH"
+# Create the file with proper ownership by using tee
+$SUDO tar --numeric-owner --absolute-names -c * | gzip $COMPRESSION_LEVEL | $SUDO tee "$WSL_INSTALL_PATH" > /dev/null
+# Fix ownership if we're running as sudo
+if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+  $SUDO chown "$SUDO_USER:$SUDO_USER" "$WSL_INSTALL_PATH"
+fi
 echo "✅ WSL distribution packaged successfully at $WSL_INSTALL_PATH"
 
 # Install the distribution
@@ -268,10 +273,10 @@ cat << EOF
 ✅ Alpine WSL distribution installation complete!
 
 To start using it:
-  - Run: wsl -d $WSL_DISTRIBUTION_NAME
+  - Run: wsl.exe -d $WSL_DISTRIBUTION_NAME
   - First boot will automatically run setup and install additional packages
   - The setup script will show progress and complete automatically
-  - After first boot, restart with: wsl -t $WSL_DISTRIBUTION_NAME && wsl -d $WSL_DISTRIBUTION_NAME
+  - After first boot, restart with: wsl.exe -t $WSL_DISTRIBUTION_NAME && wsl.exe -d $WSL_DISTRIBUTION_NAME
 
 To customize:
   - Edit ~/.config/helix/config.toml for Helix editor settings

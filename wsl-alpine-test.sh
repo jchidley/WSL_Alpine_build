@@ -155,7 +155,8 @@ echo "Waiting for WSL to register the new distribution..."
 sleep 5
 
 # Check if distribution exists
-if ! $WSL_EXE --list | grep -q "$TEST_NAME"; then
+# Note: wsl --list outputs Unicode, so we use a more reliable check
+if ! $WSL_EXE --list --all | iconv -f UTF-16LE -t UTF-8 2>/dev/null | grep -q "$TEST_NAME"; then
   echo "❌ Test distribution was not found. Build may have failed."
   exit 1
 fi
@@ -228,8 +229,8 @@ case $cleanup_option in
     ;;
   2|*)
     echo "ℹ️ Test distribution kept for further inspection"
-    echo "You can access it with: wsl -d $TEST_NAME"
-    echo "When done, remove it with: wsl --unregister $TEST_NAME"
+    echo "You can access it with: wsl.exe -d $TEST_NAME"
+    echo "When done, remove it with: wsl.exe --unregister $TEST_NAME"
     echo "Also remove: $REAL_HOME/alpine-test.wsl.gz"
     ;;
 esac

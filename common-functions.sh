@@ -1,6 +1,54 @@
 #!/usr/bin/env bash
 # Common functions for WSL Alpine build scripts
 
+# Constants
+DEFAULT_DISTRIBUTION_NAME="alp2"
+TEST_DISTRIBUTION_PREFIX="alp-test-"
+TEST_DISTRIBUTION_PATTERN="${TEST_DISTRIBUTION_PREFIX}[0-9]+"
+
+# Logging functions
+log_info() {
+  echo "ℹ️  $*"
+}
+
+log_success() {
+  echo "✅ $*"
+}
+
+log_error() {
+  echo "❌ $*" >&2
+}
+
+log_warning() {
+  echo "⚠️  $*"
+}
+
+log_progress() {
+  echo "🔄 $*"
+}
+
+# Configuration loading function
+load_config() {
+  local env_file="${1:-.env}"
+  
+  if [ ! -f "$env_file" ]; then
+    log_warning "No $env_file file found"
+    return 1
+  fi
+  
+  # Source the .env file
+  set -a
+  source "$env_file"
+  set +a
+  
+  # Set defaults for critical variables
+  SUDO="${SUDO:-sudo}"
+  WSL_DISTRIBUTION_NAME="${WSL_DISTRIBUTION_NAME:-$DEFAULT_DISTRIBUTION_NAME}"
+  CHROOT_DIR="${CHROOT_DIR:-/tmp/$WSL_DISTRIBUTION_NAME}"
+  
+  return 0
+}
+
 # Function to ensure Windows paths are in PATH
 ensure_windows_paths() {
   # Check if Windows paths are already in PATH
@@ -74,7 +122,22 @@ find_wsl_exe() {
 # Function to get real user's home directory when running with sudo
 get_real_home() {
   local real_user="${SUDO_USER:-$USER}"
-  echo "/home/$real_user"
+  
+  # If we're root and SUDO_USER is not set, try to detect the real user
+  if [ "$real_user" = "root" ] && [ -z "$SUDO_USER" ]; then
+    # Try to get the user who owns the script
+    local script_owner=$(stat -c '%U' "${BASH_SOURCE[-1]}" 2>/dev/null)
+    if [ -n "$script_owner" ] && [ "$script_owner" != "root" ]; then
+      real_user="$script_owner"
+    fi
+  fi
+  
+  # Return appropriate home directory
+  if [ "$real_user" = "root" ]; then
+    echo "/root"
+  else
+    echo "/home/$real_user"
+  fi
 }
 
 # Function to get Windows username
@@ -142,6 +205,134 @@ get_wsl_install_dirs() {
   )
   
   printf '%s\n' "${dirs[@]}"
+}
+
+# Function to check if a WSL distribution exists
+distribution_exists() {
+  local distro_name="$1"
+  
+  if [ -z "$distro_name" ]; then
+    log_error "Distribution name not provided"
+    return 2
+  fi
+  
+  # Use WSL list to check, handling Unicode output
+  if $WSL_EXE --list --all 2>/dev/null | iconv -f UTF-16LE -t UTF-8 2>/dev/null | grep -q "^${distro_name}$\|^${distro_name}[[:space:]]"; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Function to get list of WSL distributions
+get_wsl_distributions() {
+  # Handle Unicode output from wsl --list
+  $WSL_EXE --list --all 2>/dev/null | iconv -f UTF-16LE -t UTF-8 2>/dev/null | tr -d '\0\r' | grep -v "^Windows" | grep -v "^$" | sed 's/[[:space:]]*$//'
+}
+
+# Function to unregister a WSL distribution
+unregister_distribution() {
+  local distro_name="$1"
+  
+  if [ -z "$distro_name" ]; then
+    log_error "Distribution name not provided"
+    return 1
+  fi
+  
+  if distribution_exists "$distro_name"; then
+    log_progress "Unregistering WSL distribution: $distro_name"
+    if $WSL_EXE --unregister "$distro_name" 2>&1; then
+      log_success "Distribution $distro_name unregistered"
+      return 0
+    else
+      log_error "Failed to unregister distribution $distro_name"
+      return 1
+    fi
+  else
+    log_warning "Distribution $distro_name not found"
+    return 1
+  fi
+}
+
+# Function to safely remove a file
+safe_remove_file() {
+  local file_path="$1"
+  local description="${2:-file}"
+  
+  if [ -f "$file_path" ]; then
+    if rm -f "$file_path"; then
+      log_success "Removed $description: $file_path"
+      return 0
+    else
+      log_warning "Failed to remove $description: $file_path"
+      return 1
+    fi
+  fi
+  return 0
+}
+
+# Function to safely remove a directory
+safe_remove_dir() {
+  local dir_path="$1"
+  local description="${2:-directory}"
+  
+  if [ -d "$dir_path" ]; then
+    if rm -rf "$dir_path"; then
+      log_success "Removed $description: $dir_path"
+      return 0
+    else
+      log_warning "Failed to remove $description: $dir_path"
+      return 1
+    fi
+  fi
+  return 0
+}
+
+# Function to clean up chroot directory
+cleanup_chroot_dir() {
+  local chroot_dir="$1"
+  
+  if [ -z "$chroot_dir" ]; then
+    log_error "Chroot directory not specified"
+    return 1
+  fi
+  
+  if [ ! -d "$chroot_dir" ]; then
+    return 0
+  fi
+  
+  log_progress "Cleaning up chroot directory: $chroot_dir"
+  
+  # Try using the destroy script if it exists
+  if [ -x "$chroot_dir/destroy" ]; then
+    log_info "Using destroy script to clean up chroot"
+    if $SUDO "$chroot_dir/destroy" -r; then
+      log_success "Chroot directory cleaned up using destroy script"
+      return 0
+    else
+      log_warning "Destroy script failed, attempting manual cleanup"
+    fi
+  fi
+  
+  # Manual cleanup as fallback
+  log_info "Performing manual chroot cleanup"
+  
+  # Unmount any remaining mounts
+  for mount in $(findmnt -R "$chroot_dir" -n -o TARGET | tac); do
+    if [ "$mount" != "$chroot_dir" ]; then
+      log_info "Unmounting $mount"
+      $SUDO umount "$mount" 2>/dev/null || true
+    fi
+  done
+  
+  # Remove the directory
+  if $SUDO rm -rf "$chroot_dir"; then
+    log_success "Chroot directory removed"
+    return 0
+  else
+    log_error "Failed to remove chroot directory"
+    return 1
+  fi
 }
 
 # Function to clean up WSL installation directories

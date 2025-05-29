@@ -71,6 +71,41 @@ COMPRESSION_LEVEL=--best         # gzip compression level (default: --fast)
 SYSTEMD_ENABLED=true             # Enable systemd (default: false)
 ```
 
+## Claude Code Installation
+
+After building your Alpine WSL distribution, you can install Claude Code for AI-powered coding assistance:
+
+### Option 1: Manual Installation (Post-Build)
+
+```bash
+# Enter your Alpine WSL distribution
+wsl.exe -d alp2
+
+# Run the installation script
+./wsl-alpine-claude-code.sh
+
+# Or install in Docker for additional isolation
+./wsl-alpine-claude-code.sh --docker
+```
+
+### Option 2: Automatic Installation (During Build)
+
+Add to your `.env` file before building:
+
+```bash
+INSTALL_CLAUDE_CODE=true         # Install Claude Code during first boot
+ANTHROPIC_API_KEY=sk-ant-...     # Optional: Pre-configure API key
+```
+
+### Authentication
+
+Claude Code requires authentication via one of these methods:
+
+1. **Claude Max Subscription**: Run `claude login` and follow the browser flow
+2. **API Key**: Set `ANTHROPIC_API_KEY` environment variable
+
+For more details, see the [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code).
+
 ## Testing
 
 For testing without affecting your existing WSL setup:

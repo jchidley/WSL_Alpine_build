@@ -14,22 +14,18 @@ source "$SCRIPT_DIR/common-functions.sh"
 # Check sudo and setup paths
 check_sudo_and_paths
 
-# Source environment variables from .env
-set -a # automatically export all variables
-if [ -f .env ]; then
-  source .env
-else
-  echo "⚠️ Warning: No .env file found. Assuming defaults:"
-  echo "  WSL_DISTRIBUTION_NAME=alp2"
-  echo "  CHROOT_DIR=/tmp/alp2"
-  WSL_DISTRIBUTION_NAME=${WSL_DISTRIBUTION_NAME:-alp2}
-  CHROOT_DIR=${CHROOT_DIR:-"/tmp/$WSL_DISTRIBUTION_NAME"}
+# Load configuration
+if ! load_config .env; then
+  log_info "Using default configuration:"
+  log_info "  WSL_DISTRIBUTION_NAME=$DEFAULT_DISTRIBUTION_NAME"
+  log_info "  CHROOT_DIR=/tmp/$DEFAULT_DISTRIBUTION_NAME"
+  WSL_DISTRIBUTION_NAME=$DEFAULT_DISTRIBUTION_NAME
+  CHROOT_DIR="/tmp/$WSL_DISTRIBUTION_NAME"
   echo
 fi
-set +a
 
 # Verify WSL access
-echo "🔍 Verifying WSL environment..."
+log_progress "Verifying WSL environment..."
 if ! find_wsl_exe; then
   exit 1
 fi
@@ -54,56 +50,22 @@ if [[ ! "$response" =~ ^[yY] ]]; then
 fi
 
 # Check and unregister distribution
-echo "🔍 Checking for WSL distribution: $WSL_DISTRIBUTION_NAME"
-if $WSL_EXE -l | grep -q "$WSL_DISTRIBUTION_NAME"; then
-  echo "🗑️ Unregistering WSL distribution: $WSL_DISTRIBUTION_NAME"
-  if ! $WSL_EXE --unregister "$WSL_DISTRIBUTION_NAME"; then
-    echo "❌ Failed to unregister WSL distribution"
-    echo "This may require administrator privileges in Windows"
-    exit 1
-  fi
-  echo "✅ WSL distribution unregistered successfully"
+log_progress "Checking for WSL distribution: $WSL_DISTRIBUTION_NAME"
+if distribution_exists "$WSL_DISTRIBUTION_NAME"; then
+  unregister_distribution "$WSL_DISTRIBUTION_NAME"
 else
-  echo "ℹ️ WSL distribution '$WSL_DISTRIBUTION_NAME' not found, skipping unregister"
+  log_info "WSL distribution '$WSL_DISTRIBUTION_NAME' not found, skipping unregister"
 fi
 
 # Clean up files
-for file in ./alpine-chroot-install ~/alpine.wsl.gz; do
-  if [ -f "$file" ]; then
-    echo "🗑️ Removing $file"
-    rm "$file" || echo "⚠️ Warning: Failed to remove $file"
-  fi
-done
+safe_remove_file "./alpine-chroot-install" "Alpine chroot install script"
+safe_remove_file "$REAL_HOME/alpine.wsl.gz" "WSL distribution archive"
 
 # Clean up chroot directory
-if [ -d "$CHROOT_DIR" ]; then
-  echo "🗑️ Cleaning up chroot directory: $CHROOT_DIR"
-  
-  # Check if destroy script exists
-  if [ -x "$CHROOT_DIR/destroy" ]; then
-    echo "Running chroot cleanup script..."
-    if ! "$CHROOT_DIR/destroy" -r; then
-      echo "⚠️ Warning: Chroot cleanup script failed"
-      echo "Attempting manual removal..."
-      $SUDO rm -rf "$CHROOT_DIR" || echo "⚠️ Warning: Failed to remove chroot directory"
-    fi
-  else
-    echo "No chroot cleanup script found, attempting direct removal..."
-    $SUDO rm -rf "$CHROOT_DIR" || echo "⚠️ Warning: Failed to remove chroot directory"
-  fi
-  
-  # Verify removal
-  if [ ! -d "$CHROOT_DIR" ]; then
-    echo "✅ Chroot directory removed successfully"
-  else
-    echo "⚠️ Warning: Chroot directory may still exist at $CHROOT_DIR"
-  fi
-else
-  echo "ℹ️ Chroot directory not found at $CHROOT_DIR, skipping cleanup"
-fi
+cleanup_chroot_dir "$CHROOT_DIR"
 
 # Clean up WSL installation directories
 cleanup_wsl_dirs "$WSL_DISTRIBUTION_NAME"
 
-echo "🧹 Cleanup complete!"
-echo "✅ Alpine WSL distribution and associated files have been removed"
+log_progress "Cleanup complete!"
+log_success "Alpine WSL distribution and associated files have been removed"

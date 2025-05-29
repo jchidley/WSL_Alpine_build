@@ -212,7 +212,7 @@ else
   echo
   echo "📝 Manual cleanup steps:"
   echo "1. Open Windows Terminal as Administrator"
-  echo "2. Run: wsl --unregister $WSL_DISTRIBUTION_NAME"
+  echo "2. Run: wsl.exe --unregister $WSL_DISTRIBUTION_NAME"
   echo "3. In WSL, run: sudo rm -rf /tmp/$WSL_DISTRIBUTION_NAME"
   echo "4. Check and remove any remaining files listed above"
 fi
