@@ -51,5 +51,8 @@ personal-notes.md
 scratch.md
 
 # Claude Code settings (user-specific)
-settings.local.jsontest-minimal/*.tar
+settings.local.json
+
+# Test minimal directory artifacts
+test-minimal/*.tar
 test-minimal/*.tar.gz
