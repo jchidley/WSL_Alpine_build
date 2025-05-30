@@ -585,3 +585,34 @@ Requirements Added: 2025-05-29
     - Maintains all existing functionality (Docker, Helix, modern CLI tools)
     - Simpler, safer, and more maintainable approach
     - Already fully documented in MINIROOTFS-APPROACH.md
+
+- [ ] REQ-56: Refactor scripts for MINIROOTFS-APPROACH implementation
+  - Priority: Critical
+  - Status: Proposed
+  - GitHub Issue: TBD
+  - Description: Refactor the scripts to implement the minirootfs approach as documented in MINIROOTFS-APPROACH.md
+  - Rationale: The current scripts still use the dangerous alpine-chroot-install approach. Need to refactor them to use the safer minirootfs approach that has been thoroughly tested and documented.
+  - Implementation Notes:
+    - Refactor wsl-alpine-build.sh to use minirootfs approach
+    - Update all related scripts to work with the new approach
+    - Remove all dependencies on alpine-chroot-install
+    - Implement the safe build process without bind mounts
+    - Use the lessons learned from MINIROOTFS-APPROACH.md
+    - Ensure modular design for Claude Code and other optional components
+    - Test thoroughly to avoid the issues documented in failure analysis
+
+- [ ] REQ-57: Handle init system limitations with automatic startup scripts
+  - Priority: High
+  - Status: Proposed
+  - GitHub Issue: TBD
+  - Description: systemd/OpenRC doesn't work as expected on WSL/Linux but often the same needs can be met with automatic startup scripts
+  - Rationale: WSL doesn't fully support traditional init systems. Services that would normally be managed by systemd or OpenRC often fail to start properly. Need alternative approaches for service management.
+  - Implementation Notes:
+    - Create startup scripts that run via wsl.conf [boot] command
+    - Use background processes with proper pid management
+    - Implement service-like functionality without init system dependency
+    - Document alternatives for common service needs (Docker, SSH, etc.)
+    - Provide examples of converting systemd/OpenRC services to startup scripts
+    - Handle service dependencies through script ordering
+    - Create simple start/stop/status scripts for manual control
+    - Consider using supervisord or similar for process management
