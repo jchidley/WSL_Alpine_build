@@ -1,17 +1,17 @@
 # Project: WSL Alpine Build
-Updated: 2025-05-30 18:18
+Updated: 2025-05-30 21:20
 
 ## Current State
-Status: Docker issues resolved, ready for PR
+Status: MINIROOTFS-APPROACH.md updated with all failures; Claude Code integration complete
 Target: User-friendly Alpine WSL with development tools
-Latest: Fixed Docker configuration using OpenRC symlinks and proper service commands
+Latest: Documented all recent failures and created modular Claude Code integration
 
 ## Essential Context
-- Removed password relaxation settings (now uses Alpine defaults)
-- Docker configured properly by creating /etc/runlevels/boot/docker symlink
-- Docker group created during build, users added automatically
-- Claude Code installer improved with better error handling and diagnostics
-- Created debug-docker.sh and fix-docker-alpine.sh helper scripts
+- Updated MINIROOTFS-APPROACH.md with 8 major failure categories and lessons learned
+- Created 3 new scripts for Claude Code integration (build-with, modular, helper)
+- Docker/OpenRC issues fully documented with solutions
+- Tree-sitter packages removed (not available in Alpine 3.18)
+- WSL path translation errors solved with --cd option
 
 ## Next Step
 Create PR to merge feat/minirootfs-approach into main branch
@@ -20,8 +20,9 @@ Create PR to merge feat/minirootfs-approach into main branch
 None
 
 ## Related Documents
-- wsl-alpine-build-modular.sh - Complete implementation with Docker fixes
-- debug-docker.sh - Docker diagnostic script
-- fix-docker-alpine.sh - Docker repair script
+- MINIROOTFS-APPROACH.md - Now includes comprehensive failure documentation
+- wsl-alpine-build-with-claude.sh - Complete build with Claude Code
+- modules/claude-code-oobe.sh - Modular Claude Code installer
+- integrate-claude-code.sh - Helper to add Claude Code to existing builds
 - PROJECT_WISDOM.md - Technical insights (3.5KB - no archive needed)
-- sessions/SESSION_20250530_091845.md - This session's log
+- sessions/SESSION_20250530_014800.md - Recent work logs

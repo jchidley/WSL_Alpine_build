@@ -96,3 +96,11 @@ Impact: Install shadow package to get configurable passwd command, or prompt use
 ### 2025-05-30: Pre-installed Scripts Improve User Experience
 Insight: Including utility scripts like install-claude-code in /usr/local/bin eliminates manual copy steps
 Impact: Users can immediately run helpful commands after login without additional setup or documentation lookup
+
+### 2025-05-30: Document Failures Comprehensively to Prevent Repetition
+Insight: Every failure teaches valuable lessons - documenting them prevents future developers from repeating mistakes
+Impact: Updated MINIROOTFS-APPROACH.md with 8 major failure categories including tree-sitter, Docker/OpenRC, and Claude Code challenges
+
+### 2025-05-30: Modular Integration Beats Monolithic Changes
+Insight: Created separate modules (claude-code-oobe.sh) that can be mixed into builds rather than duplicating entire scripts
+Impact: Maintainable approach - one module can enhance multiple build scripts without code duplication
