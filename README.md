@@ -106,6 +106,54 @@ Claude Code requires authentication via one of these methods:
 
 For more details, see the [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code).
 
+## Usage
+
+### Starting Alpine Linux
+
+After installation, you can start Alpine Linux with:
+
+```bash
+# Start as your user
+wsl.exe -d alpine-wsl -u $USER --cd /home/$USER
+
+# Or if you used a custom name
+wsl.exe -d <distro-name> -u <username> --cd /home/<username>
+```
+
+### Running as Root
+
+To run Alpine as root, you have several options:
+
+#### 1. Direct root access:
+```bash
+wsl.exe -d alpine-wsl -u root --cd /
+```
+
+#### 2. From within Alpine as your user:
+```bash
+# Switch to root
+sudo su -
+
+# Or run a single command as root
+sudo <command>
+```
+
+#### 3. Run a specific command as root:
+```bash
+wsl.exe -d alpine-wsl -u root --cd / -e <command>
+```
+
+#### 4. If you need to fix something before the user setup:
+```bash
+# Start as root directly
+wsl.exe -d alpine-wsl -u root --cd /
+
+# Then you can manually run the setup if needed
+/root/setup-alpine-wsl.sh
+```
+
+Since the setup configures sudo access for the wheel group, your user can use `sudo` for administrative tasks, which is the recommended approach for security. But when you need direct root access (like for system recovery or initial setup), use the `-u root` option with wsl.exe.
+
 ## Testing
 
 For testing without affecting your existing WSL setup:

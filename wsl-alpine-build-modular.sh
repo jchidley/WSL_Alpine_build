@@ -186,6 +186,7 @@ configure_wsl() {
     dry_run_exec fakeroot tee "$rootfs/etc/wsl.conf" > /dev/null << EOF
 [boot]
 systemd = false
+command = /sbin/openrc boot
 
 [network]
 hostname = alpine
@@ -205,6 +206,29 @@ enabled = true
 appendWindowsPath = true
 EOF
 
+    # Configure network for Docker
+    verbose "Setting up network configuration for Docker"
+    dry_run_exec fakeroot mkdir -p "$rootfs/etc/network"
+    dry_run_exec fakeroot tee "$rootfs/etc/network/interfaces" > /dev/null << EOF
+# /etc/network/interfaces
+# The loopback network interface
+auto lo
+iface lo inet loopback
+EOF
+
+    # Create WSL-specific directories and terminal profile
+    verbose "Creating WSL terminal profile"
+    dry_run_exec fakeroot mkdir -p "$rootfs/usr/lib/wsl"
+    dry_run_exec fakeroot tee "$rootfs/usr/lib/wsl/terminal-profile.json" > /dev/null << EOF
+{
+  "profiles": [
+    {
+      "colorScheme": "Gruvbox Dark (Hard)"
+    }
+  ]
+}
+EOF
+
     # Create setup script for first boot
     verbose "Creating first-boot setup script"
     dry_run_exec fakeroot tee "$rootfs/root/setup-alpine-wsl.sh" > /dev/null << 'EOF'
@@ -221,15 +245,41 @@ apk update
 echo "Installing basic packages..."
 apk add --no-cache \
     sudo \
-    shadow \
-    coreutils \
-    util-linux \
-    procps \
-    curl \
-    wget \
     git \
-    nano \
-    vim
+    openrc \
+    helix \
+    tree-sitter-bash \
+    tree-sitter-regex \
+    tree-sitter-json \
+    tree-sitter-toml \
+    tree-sitter-ini \
+    tree-sitter-comment \
+    fd \
+    bat \
+    zoxide \
+    fzf
+
+# Add testing repository for additional packages
+echo "@testing https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
+
+# Install additional packages including Docker
+echo "Installing additional packages..."
+apk update
+apk add --no-cache \
+    tree-sitter-markdown@testing \
+    docker \
+    lazydocker \
+    tree-sitter-css \
+    tree-sitter-html \
+    tree-sitter-javascript \
+    tree-sitter-typescript \
+    tree-sitter-python \
+    tree-sitter-rust \
+    tree-sitter-c
+
+# Enable Docker service
+echo "Enabling Docker service..."
+ln -sf /etc/init.d/docker /etc/runlevels/boot/docker
 
 # Create wheel group if it doesn't exist
 if ! grep -q "^wheel:" /etc/group; then
@@ -260,6 +310,14 @@ fi
 # Fix ownership after user is created
 chown -R "$USERNAME:$USERNAME" "/home/$USERNAME"
 
+# Configure Helix editor
+echo "Configuring Helix editor..."
+mkdir -p "/home/$USERNAME/.config/helix"
+cat > "/home/$USERNAME/.config/helix/config.toml" << 'HELIX_EOF'
+theme = "gruvbox_dark_hard"
+HELIX_EOF
+chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/.config"
+
 # Create .profile if it doesn't exist
 if [ ! -f "/home/$USERNAME/.profile" ]; then
     cat > "/home/$USERNAME/.profile" << 'PROFILE'
@@ -286,12 +344,14 @@ fi
 PS1='\u@\h:\w\$ '
 
 # Aliases
-alias ls='ls --color=auto'
 alias ll='ls -la'
-alias grep='grep --color=auto'
 
 # Environment
 export PATH=$PATH:/usr/local/bin
+export COLORTERM=truecolor
+
+# Initialize zoxide
+eval "$(zoxide init posix --hook prompt)"
 
 # If bash is installed and user wants it, they can uncomment this
 # [ -x /bin/bash ] && exec /bin/bash
@@ -308,6 +368,18 @@ echo "Default user: $USERNAME (temporary password: $USERNAME)"
 echo ""
 echo "You will be prompted to change your password on first login."
 
+# Configure Helix editor for root
+mkdir -p /root/.config/helix
+cat > /root/.config/helix/config.toml << 'HELIX_CONFIG'
+theme = "gruvbox_dark_hard"
+HELIX_CONFIG
+
+# Configure root shell
+cat > /root/.profile << 'ROOT_PROFILE'
+export COLORTERM=truecolor
+eval "$(zoxide init posix --hook prompt)"
+ROOT_PROFILE
+
 # Mark that setup is complete
 touch /root/.setup-complete
 EOF
@@ -319,6 +391,7 @@ EOF
     dry_run_exec fakeroot tee "$rootfs/etc/apk/repositories" > /dev/null << EOF
 ${MIRROR}/v${ALPINE_VERSION%.*}/main
 ${MIRROR}/v${ALPINE_VERSION%.*}/community
+@testing https://dl-cdn.alpinelinux.org/alpine/edge/testing
 EOF
 
     success "WSL configuration complete"

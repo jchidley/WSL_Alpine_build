@@ -84,3 +84,7 @@ Impact: Use `wsl.exe -d <distro> --cd /` or `--cd ~` to bypass path translation 
 ### 2025-05-30: Alpine Shell Compatibility - Use ash Not bash
 Insight: Alpine's default shell is ash (BusyBox), not bash - using bash breaks Alpine's minimalist philosophy
 Impact: Use /bin/ash for user shells, .profile instead of .bashrc, and ensure all scripts are POSIX-compatible
+
+### 2025-05-30: Alpine Package Availability - Not All tree-sitter Parsers Exist
+Insight: tree-sitter-comment and tree-sitter-ini packages don't exist in Alpine repositories (v3.18)
+Impact: Must verify package existence before adding to build scripts - check pkgs.alpinelinux.org for availability
