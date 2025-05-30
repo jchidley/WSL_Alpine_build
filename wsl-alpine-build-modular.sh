@@ -248,12 +248,6 @@ apk add --no-cache \
     git \
     openrc \
     helix \
-    tree-sitter-bash \
-    tree-sitter-regex \
-    tree-sitter-json \
-    tree-sitter-toml \
-    tree-sitter-ini \
-    tree-sitter-comment \
     fd \
     bat \
     zoxide \
@@ -266,16 +260,8 @@ echo "@testing https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/r
 echo "Installing additional packages..."
 apk update
 apk add --no-cache \
-    tree-sitter-markdown@testing \
     docker \
-    lazydocker \
-    tree-sitter-css \
-    tree-sitter-html \
-    tree-sitter-javascript \
-    tree-sitter-typescript \
-    tree-sitter-python \
-    tree-sitter-rust \
-    tree-sitter-c
+    lazydocker
 
 # Enable Docker service
 echo "Enabling Docker service..."

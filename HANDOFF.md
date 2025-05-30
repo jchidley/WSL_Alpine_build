@@ -1,27 +1,26 @@
 # Project: WSL Alpine Build
-Updated: 2025-05-30 13:12
+Updated: 2025-05-30 13:27
 
 ## Current State
-Status: Fixing package availability issues in modular build
-Target: Match original build features with correct Alpine packages
-Latest: Added all original packages but found tree-sitter-comment and tree-sitter-ini don't exist
+Status: Modular build fixed - removed all tree-sitter packages
+Target: Working Alpine WSL build with Helix, Docker, and terminal tools
+Latest: Removed all tree-sitter packages to avoid installation failures
 
 ## Essential Context
-- Modified modular build to include Helix, Docker, terminal tools from original
-- Some tree-sitter packages (comment, ini) don't exist in Alpine repos
-- Build fails during setup due to missing packages
-- Need to identify which tree-sitter packages actually exist
-- All other configurations (Gruvbox, Docker, zoxide) successfully added
+- Modular build now includes: helix, docker, lazydocker, fd, bat, zoxide, fzf
+- All tree-sitter packages removed (were causing build failures in Alpine 3.18)
+- Docker configured with network setup and boot service
+- Gruvbox theme and terminal profile configured
+- Ready to test the simplified package list
 
 ## Next Step
-Remove non-existent tree-sitter packages and verify available ones
+Test the modular build with the corrected package list
 
 ## If Blocked
-Need to check Alpine package repository for actual tree-sitter availability
+No current blockers
 
 ## Related Documents
-- wsl-alpine-build-modular.sh - Updated with full feature set
-- wsl-alpine-build.sh - Original build script for reference
+- wsl-alpine-build-modular.sh - Fixed package list
+- PROJECT_WISDOM.md - Updated with tree-sitter discovery
 - CLAUDE.md - Project-specific instructions
-- TODO.md - Active tasks (if exists)
-- PROJECT_WISDOM.md - Technical insights
+- sessions/SESSION_20250530_014800.md - Current session log
