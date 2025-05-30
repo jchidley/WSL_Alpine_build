@@ -1,5 +1,5 @@
-#!/bin/sh
-# Claude Code module for Alpine WSL build
+#!/bin/ash
+# Claude Code module for Alpine WSL/Docker build
 # This can be sourced during the build process or run as part of oobe.sh
 
 # Function to add Claude Code to the first-boot setup
@@ -29,7 +29,9 @@ if [ -n "$INSTALL_CLAUDE_CODE" ]; then
 }
 EOFCONFIG
     
-    echo "✅ Claude Code installed. Set ANTHROPIC_API_KEY to use."
+    echo "✅ Claude Code installed."
+    echo "   Run 'claude login' to authenticate with your Claude Max subscription"
+    echo "   For containers/CI: use --dangerously-skip-permissions flag"
 fi
 EOF
 }

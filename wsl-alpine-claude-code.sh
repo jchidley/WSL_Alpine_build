@@ -66,6 +66,7 @@ install_claude_code_native() {
         echo "❌ Claude Code installation failed"
         exit 1
     fi
+    
 }
 
 # Function to install Claude Code in Docker
@@ -83,9 +84,33 @@ install_claude_code_docker() {
     # Check if Docker service is running
     if ! docker info &>/dev/null; then
         echo "⚠️  Docker service is not running. Starting Docker..."
-        service docker start || {
-            echo "❌ Failed to start Docker service"
-            exit 1
+        # Try to start Docker, but check if it's already starting
+        rc-service docker start 2>&1 | grep -q "already starting" && {
+            echo "Docker is already starting, waiting..."
+            # Wait up to 30 seconds for Docker to be ready
+            for i in $(seq 1 30); do
+                if docker info >/dev/null 2>&1; then
+                    echo "✅ Docker is ready"
+                    break
+                fi
+                sleep 1
+            done
+            if ! docker info >/dev/null 2>&1; then
+                echo "❌ Docker failed to start within 30 seconds"
+                exit 1
+            fi
+        } || {
+            # If not already starting, check if start command succeeded
+            if rc-service docker start 2>/dev/null; then
+                echo "✅ Docker service started"
+                # Wait a moment for Docker to be fully ready
+                sleep 2
+            else
+                echo "❌ Failed to start Docker service"
+                echo "Please ensure Docker is installed: apk add docker"
+                echo "And add it to boot: rc-update add docker boot"
+                exit 1
+            fi
         }
     fi
     
@@ -139,18 +164,15 @@ docker run -it --rm \
     -v "$WORKSPACE:/workspace" \
     -v "$HOME/.config:/home/claude/.config" \
     -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" \
-    -e "CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS=${CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS}" \
     --network="${CLAUDE_NETWORK:-bridge}" \
     claude-code:alpine "$@"
 EOF
 
     chmod +x /usr/local/bin/claude-docker
     
-    # Create alias for convenience
-    echo "alias claude='claude-docker'" >> /etc/profile.d/claude.sh
-    
     echo "✅ Claude Code Docker setup complete"
-    echo "   Use 'claude-docker' or 'claude' to run Claude Code in Docker"
+    echo "   Use 'claude-docker' to run Claude Code in Docker"
+    echo "   Add --dangerously-skip-permissions flag for container/CI usage"
     
     # Clean up
     rm -f /tmp/claude-code.Dockerfile
@@ -185,16 +207,14 @@ EOF
 
 🔑 Authentication Setup:
 
-Option 1: Claude Max Subscription
+For Claude Max Subscription:
   Run: claude login
   Then follow the browser authentication flow
 
-Option 2: API Key
-  Export your API key:
-  export ANTHROPIC_API_KEY="your-api-key-here"
-  
-  To make it permanent, add to ~/.profile:
-  echo 'export ANTHROPIC_API_KEY="your-api-key-here"' >> ~/.profile
+Note: In Docker containers or headless environments, you may need to:
+  1. Run 'claude login' on a system with a browser
+  2. Copy the authentication token to the container
+  3. Or use --dangerously-skip-permissions for CI/CD workflows
 
 EOF
 }

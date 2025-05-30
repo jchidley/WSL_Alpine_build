@@ -1,26 +1,27 @@
 # Project: WSL Alpine Build
-Updated: 2025-05-30 13:27
+Updated: 2025-05-30 18:18
 
 ## Current State
-Status: Modular build fixed - removed all tree-sitter packages
-Target: Working Alpine WSL build with Helix, Docker, and terminal tools
-Latest: Removed all tree-sitter packages to avoid installation failures
+Status: Docker issues resolved, ready for PR
+Target: User-friendly Alpine WSL with development tools
+Latest: Fixed Docker configuration using OpenRC symlinks and proper service commands
 
 ## Essential Context
-- Modular build now includes: helix, docker, lazydocker, fd, bat, zoxide, fzf
-- All tree-sitter packages removed (were causing build failures in Alpine 3.18)
-- Docker configured with network setup and boot service
-- Gruvbox theme and terminal profile configured
-- Ready to test the simplified package list
+- Removed password relaxation settings (now uses Alpine defaults)
+- Docker configured properly by creating /etc/runlevels/boot/docker symlink
+- Docker group created during build, users added automatically
+- Claude Code installer improved with better error handling and diagnostics
+- Created debug-docker.sh and fix-docker-alpine.sh helper scripts
 
 ## Next Step
-Test the modular build with the corrected package list
+Create PR to merge feat/minirootfs-approach into main branch
 
 ## If Blocked
-No current blockers
+None
 
 ## Related Documents
-- wsl-alpine-build-modular.sh - Fixed package list
-- PROJECT_WISDOM.md - Updated with tree-sitter discovery
-- CLAUDE.md - Project-specific instructions
-- sessions/SESSION_20250530_014800.md - Current session log
+- wsl-alpine-build-modular.sh - Complete implementation with Docker fixes
+- debug-docker.sh - Docker diagnostic script
+- fix-docker-alpine.sh - Docker repair script
+- PROJECT_WISDOM.md - Technical insights (3.5KB - no archive needed)
+- sessions/SESSION_20250530_091845.md - This session's log

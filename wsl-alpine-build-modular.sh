@@ -216,6 +216,22 @@ auto lo
 iface lo inet loopback
 EOF
 
+    # Configure Docker service to start at boot
+    verbose "Configuring Docker service"
+    # Create runlevel directories if they don't exist
+    dry_run_exec fakeroot mkdir -p "$rootfs/etc/runlevels/boot"
+    dry_run_exec fakeroot mkdir -p "$rootfs/etc/runlevels/default"
+    
+    # Create symlink for Docker service in boot runlevel
+    # This will be activated once Docker is installed
+    dry_run_exec fakeroot ln -sf /etc/init.d/docker "$rootfs/etc/runlevels/boot/docker" || true
+    
+    # Create docker group
+    verbose "Creating docker group"
+    if [[ "$DRY_RUN" != "1" ]]; then
+        echo "docker:x:102:" >> "$rootfs/etc/group" || true
+    fi
+
     # Create WSL-specific directories and terminal profile
     verbose "Creating WSL terminal profile"
     dry_run_exec fakeroot mkdir -p "$rootfs/usr/lib/wsl"
@@ -263,9 +279,24 @@ apk add --no-cache \
     docker \
     lazydocker
 
-# Enable Docker service
-echo "Enabling Docker service..."
-ln -sf /etc/init.d/docker /etc/runlevels/boot/docker
+# Docker service is already configured to start at boot
+echo "Docker service configured to start at boot"
+
+
+# Fix critical setuid binaries that fakeroot doesn't preserve
+echo "Fixing setuid permissions..."
+# passwd must be setuid for users to change their own passwords
+if [ -f /usr/bin/passwd ]; then
+    chmod u+s /usr/bin/passwd
+fi
+# su might be in different locations or not installed
+for su_path in /usr/bin/su /bin/su; do
+    [ -f "$su_path" ] && chmod u+s "$su_path"
+done
+
+# Install shadow package for proper user management
+echo "Installing shadow package..."
+apk add --no-cache shadow shadow-login
 
 # Create wheel group if it doesn't exist
 if ! grep -q "^wheel:" /etc/group; then
@@ -281,8 +312,18 @@ if ! id "$USERNAME" >/dev/null 2>&1; then
     echo "Creating default user '$USERNAME'..."
     adduser -D -s /bin/ash "$USERNAME"
     adduser "$USERNAME" wheel
-    # Set a temporary password (same as username)
-    echo "$USERNAME:$USERNAME" | chpasswd
+    
+    # Add user to docker group for Docker access
+    adduser "$USERNAME" docker 2>/dev/null || echo "Docker group will be configured later"
+    
+    # Set password from environment or use a default
+    if [ -n "$ALPINE_USER_PASSWORD" ]; then
+        echo "$USERNAME:$ALPINE_USER_PASSWORD" | chpasswd
+    else
+        # Fallback to temporary password if not provided
+        TEMP_PASS="${USERNAME}Alpine2024!"
+        echo "$USERNAME:$TEMP_PASS" | chpasswd
+    fi
     
     # Configure sudo
     echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
@@ -309,21 +350,15 @@ if [ ! -f "/home/$USERNAME/.profile" ]; then
     cat > "/home/$USERNAME/.profile" << 'PROFILE'
 # Alpine Linux .profile for WSL
 
-# Check if password needs to be changed on first login
+# First login message
 if [ -f "$HOME/.first-login" ]; then
     echo "Welcome to Alpine Linux on WSL!"
     echo ""
-    echo "For security, you must change your password now."
-    passwd
-    if [ $? -eq 0 ]; then
-        rm -f "$HOME/.first-login"
-        echo ""
-        echo "Password changed successfully!"
-        echo ""
-    else
-        echo "Password change failed. Please try again."
-        exit 1
-    fi
+    echo "Optional: To install Claude Code, run:"
+    echo "  sudo install-claude-code        # For native installation"
+    echo "  sudo install-claude-code docker  # For Docker installation"
+    echo ""
+    rm -f "$HOME/.first-login"
 fi
 
 # Basic prompt
@@ -350,9 +385,11 @@ PROFILE
 fi
 
 echo "Setup complete! You can now use Alpine Linux in WSL."
-echo "Default user: $USERNAME (temporary password: $USERNAME)"
-echo ""
-echo "You will be prompted to change your password on first login."
+echo "Default user: $USERNAME"
+if [ -z "$ALPINE_USER_PASSWORD" ]; then
+    echo "Temporary password: ${USERNAME}Alpine2024!"
+    echo "To change your password after login, use: passwd"
+fi
 
 # Configure Helix editor for root
 mkdir -p /root/.config/helix
@@ -365,6 +402,176 @@ cat > /root/.profile << 'ROOT_PROFILE'
 export COLORTERM=truecolor
 eval "$(zoxide init posix --hook prompt)"
 ROOT_PROFILE
+
+# Create Claude Code installation script
+cat > /usr/local/bin/install-claude-code << 'CLAUDE_SCRIPT'
+#!/bin/ash
+# Install Claude Code in Alpine Linux
+
+set -e
+
+echo "Claude Code Installer for Alpine Linux"
+echo "======================================"
+echo ""
+
+# Check if running as root
+if [ "$(id -u)" != "0" ]; then
+    echo "Please run with sudo: sudo install-claude-code"
+    exit 1
+fi
+
+# Default to native installation
+INSTALL_METHOD="${1:-native}"
+
+case "$INSTALL_METHOD" in
+    native|--native)
+        echo "Installing Claude Code (native)..."
+        
+        # Install Node.js and npm
+        echo "Installing Node.js and npm..."
+        apk add --no-cache nodejs npm
+        
+        # Install Claude Code
+        echo "Installing Claude Code..."
+        npm install -g @anthropic-ai/claude-code
+        
+        # Create config directory
+        mkdir -p /root/.config/claude-code
+        cat > /root/.config/claude-code/config.json << 'CONFIG'
+{
+    "telemetry": {
+        "enabled": false
+    },
+    "editor": {
+        "default": "hx"
+    }
+}
+CONFIG
+        
+        # Also create for regular user if exists
+        if [ -n "$SUDO_USER" ]; then
+            USER_HOME="/home/$SUDO_USER"
+            mkdir -p "$USER_HOME/.config/claude-code"
+            cp /root/.config/claude-code/config.json "$USER_HOME/.config/claude-code/"
+            chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.config"
+        fi
+        
+        echo ""
+        echo "✅ Claude Code installed successfully!"
+        echo ""
+        echo "To use Claude Code:"
+        echo "  1. Run: claude login"
+        echo "  2. Follow the browser authentication flow"
+        echo "  3. Start coding with: claude"
+        echo ""
+        echo "For containers/CI, use: claude --dangerously-skip-permissions"
+        ;;
+        
+    docker|--docker)
+        echo "Installing Claude Code (Docker)..."
+        
+        # Check if Docker daemon is accessible
+        echo "Checking Docker status..."
+        
+        # First ensure Docker service is started
+        if ! rc-service docker status >/dev/null 2>&1; then
+            echo "Docker service is not running. Starting..."
+            rc-service docker start || {
+                echo "❌ Failed to start Docker service"
+                echo ""
+                echo "This might be due to WSL/OpenRC initialization issues."
+                echo "Please try:"
+                echo "  1. Exit and re-enter WSL: wsl.exe --terminate $WSL_DISTRO_NAME && wsl.exe -d $WSL_DISTRO_NAME"
+                echo "  2. Manually start Docker: sudo rc-service docker start"
+                echo "  3. Check Docker logs: sudo dockerd --debug"
+                exit 1
+            }
+        fi
+        
+        # Wait for Docker daemon to be ready
+        echo "Waiting for Docker daemon to be ready..."
+        DOCKER_READY=0
+        for i in $(seq 1 60); do
+            if docker info >/dev/null 2>&1; then
+                DOCKER_READY=1
+                echo "✅ Docker is ready"
+                break
+            fi
+            # Every 10 seconds, show a message
+            if [ $((i % 10)) -eq 0 ]; then
+                echo "Still waiting for Docker daemon... ($i/60)"
+            fi
+            sleep 1
+        done
+        
+        if [ $DOCKER_READY -eq 0 ]; then
+            echo "❌ Docker daemon failed to start within 60 seconds"
+            echo ""
+            echo "Troubleshooting:"
+            echo "  1. Check if dockerd process is running: ps aux | grep dockerd"
+            echo "  2. Check Docker logs: sudo tail -50 /var/log/docker.log"
+            echo "  3. Try starting manually: sudo dockerd --debug"
+            echo "  4. Check kernel support: lsmod | grep overlay"
+            exit 1
+        fi
+        
+        # Create Dockerfile
+        cat > /tmp/claude-dockerfile << 'DOCKERFILE'
+FROM node:20-alpine
+RUN apk add --no-cache git bash curl make g++ python3
+RUN npm install -g @anthropic-ai/claude-code
+RUN adduser -D -s /bin/bash claude
+RUN mkdir -p /workspace && chown claude:claude /workspace
+USER claude
+WORKDIR /workspace
+ENTRYPOINT ["claude"]
+DOCKERFILE
+        
+        # Build image
+        echo "Building Docker image..."
+        docker build -t claude-code:alpine -f /tmp/claude-dockerfile /tmp/
+        
+        # Create wrapper
+        cat > /usr/local/bin/claude-docker << 'WRAPPER'
+#!/bin/sh
+docker run -it --rm \
+    -v "${PWD}:/workspace" \
+    -v "$HOME/.config:/home/claude/.config" \
+    -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" \
+    --network="${CLAUDE_NETWORK:-bridge}" \
+    claude-code:alpine "$@"
+WRAPPER
+        chmod +x /usr/local/bin/claude-docker
+        
+        # Clean up
+        rm -f /tmp/claude-dockerfile
+        
+        echo ""
+        echo "✅ Claude Code Docker setup complete!"
+        echo ""
+        echo "To use Claude Code:"
+        echo "  1. Run: claude-docker login"
+        echo "  2. Follow the browser authentication flow"
+        echo "  3. Start coding with: claude-docker"
+        echo ""
+        echo "For containers/CI, use: claude-docker --dangerously-skip-permissions"
+        ;;
+        
+    *)
+        echo "Usage: $0 [native|docker]"
+        echo ""
+        echo "Options:"
+        echo "  native  - Install Claude Code directly (default)"
+        echo "  docker  - Install Claude Code in Docker container"
+        exit 1
+        ;;
+esac
+
+echo ""
+echo "Installation complete!"
+CLAUDE_SCRIPT
+
+chmod +x /usr/local/bin/install-claude-code
 
 # Mark that setup is complete
 touch /root/.setup-complete
@@ -446,13 +653,43 @@ install_wsl() {
     # Get current username
     local username="${SUDO_USER:-$USER}"
     
+    # Prompt for user password
+    echo
+    echo "Please set a password for user '$username' in the new Alpine distribution."
+    echo "Password requirements: minimum 8 characters"
+    while true; do
+        read -s -p "Enter password: " user_password
+        echo
+        read -s -p "Confirm password: " user_password_confirm
+        echo
+        
+        if [ "$user_password" != "$user_password_confirm" ]; then
+            echo "Passwords do not match. Please try again."
+            continue
+        fi
+        
+        if [ ${#user_password} -lt 8 ]; then
+            echo "Password must be at least 8 characters. Please try again."
+            continue
+        fi
+        
+        break
+    done
+    
+    # Pass password via environment variable
+    export ALPINE_USER_PASSWORD="$user_password"
+    
     # Run the setup script automatically
     echo
     progress "Running initial setup..."
-    if ! dry_run_exec wsl.exe -d "$name" --cd / -e /root/setup-alpine-wsl.sh; then
+    if ! dry_run_exec wsl.exe -d "$name" --cd / -e env ALPINE_USER_PASSWORD="$ALPINE_USER_PASSWORD" /root/setup-alpine-wsl.sh; then
         error "Setup script failed"
+        unset ALPINE_USER_PASSWORD
         return 1
     fi
+    
+    # Clear password from environment
+    unset ALPINE_USER_PASSWORD
     
     # Launch as the user
     echo
@@ -461,7 +698,8 @@ install_wsl() {
     echo "To start using Alpine Linux:"
     echo "  wsl.exe -d $name -u $username --cd /home/$username"
     echo
-    echo "You will be prompted to change your password on first login."
+    echo "Note: Docker is configured to start automatically."
+    echo "On first use, you may need to wait a moment for the Docker daemon to initialize."
     
     return 0
 }

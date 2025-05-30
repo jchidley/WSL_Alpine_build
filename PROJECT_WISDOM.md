@@ -88,3 +88,11 @@ Impact: Use /bin/ash for user shells, .profile instead of .bashrc, and ensure al
 ### 2025-05-30: Alpine Package Availability - Not All tree-sitter Parsers Exist
 Insight: tree-sitter-comment and tree-sitter-ini packages don't exist in Alpine repositories (v3.18)
 Impact: Must verify package existence before adding to build scripts - check pkgs.alpinelinux.org for availability
+
+### 2025-05-30: Alpine BusyBox passwd Has Hardcoded Password Policies
+Insight: BusyBox passwd enforces strict password rules that can't be configured via login.defs or PAM
+Impact: Install shadow package to get configurable passwd command, or prompt user for password during installation
+
+### 2025-05-30: Pre-installed Scripts Improve User Experience
+Insight: Including utility scripts like install-claude-code in /usr/local/bin eliminates manual copy steps
+Impact: Users can immediately run helpful commands after login without additional setup or documentation lookup
