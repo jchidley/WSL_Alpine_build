@@ -51,3 +51,7 @@ Impact: Updated MINIROOTFS-APPROACH.md with 8 major failure categories including
 ### 2025-05-30: Modular Integration Beats Monolithic Changes
 Insight: Created separate modules (claude-code-oobe.sh) that can be mixed into builds rather than duplicating entire scripts
 Impact: Maintainable approach - one module can enhance multiple build scripts without code duplication
+
+### 2025-01-30: Comprehensive Refactoring Enables Safe, Modular Architecture
+Insight: Replacing 22 scripts with a single entry point and modular libraries dramatically improves maintainability and safety
+Impact: No more dangerous chroot operations, full test coverage, and users can pick exactly the features they need through modules

@@ -1,0 +1,634 @@
+#!/usr/bin/env bash
+# ABOUTME: Main Alpine WSL management script with subcommands
+# ABOUTME: Single entry point for building, managing, and testing Alpine WSL distributions
+
+set -euo pipefail
+
+# Script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source libraries
+# shellcheck source=src/lib/common.sh
+source "${SCRIPT_DIR}/src/lib/common.sh"
+# shellcheck source=src/lib/minirootfs.sh
+source "${SCRIPT_DIR}/src/lib/minirootfs.sh"
+# shellcheck source=src/lib/wsl.sh
+source "${SCRIPT_DIR}/src/lib/wsl.sh"
+# shellcheck source=src/lib/package.sh
+source "${SCRIPT_DIR}/src/lib/package.sh"
+
+# Version
+readonly VERSION="2.0.0"
+
+# Default values
+DEFAULT_DISTRO_NAME="alpine-wsl"
+DEFAULT_MODULES="base"
+DEFAULT_BUILD_DIR="/tmp/alpine-wsl-build"
+
+# Print usage
+print_usage() {
+    cat << EOF
+Alpine WSL Management Tool v${VERSION}
+
+Usage: $(basename "$0") <command> [options]
+
+Commands:
+    build       Build a new Alpine WSL distribution
+    install     Import a distribution into WSL
+    reset       Remove a WSL distribution
+    test        Run tests or test builds
+    module      Manage distribution modules
+    list        List WSL distributions
+    help        Show this help message
+
+Options:
+    --help, -h      Show help for a specific command
+    --version, -v   Show version information
+    --debug         Enable debug output
+    --verbose       Enable verbose output
+    --dry-run       Show what would be done without making changes
+
+Examples:
+    $(basename "$0") build                    # Build with default settings
+    $(basename "$0") build --modules all      # Build with all modules
+    $(basename "$0") reset alpine-wsl         # Remove distribution
+    $(basename "$0") module list              # List available modules
+    $(basename "$0") test                     # Run all tests
+
+For command-specific help, use: $(basename "$0") <command> --help
+EOF
+}
+
+# Print build command usage
+print_build_usage() {
+    cat << EOF
+Build Alpine WSL Distribution
+
+Usage: $(basename "$0") build [options]
+
+Options:
+    --name NAME             Distribution name (default: $DEFAULT_DISTRO_NAME)
+    --modules MODULES       Comma-separated list of modules to install
+                           Available: base, docker, claude-code, development
+                           Use 'all' to install all modules
+    --version VERSION      Alpine version (default: $ALPINE_VERSION)
+    --arch ARCH           Architecture (default: $ALPINE_ARCH)
+    --output FILE         Output file path (default: alpine-wsl.tar.gz)
+    --build-dir DIR       Build directory (default: $DEFAULT_BUILD_DIR)
+    --no-import          Build only, don't import to WSL
+    --import-only FILE    Import existing archive to WSL
+    --config FILE        Load configuration from file
+    --help, -h           Show this help message
+
+Examples:
+    $(basename "$0") build
+    $(basename "$0") build --name my-alpine --modules base,docker
+    $(basename "$0") build --modules all --no-import
+    $(basename "$0") build --import-only alpine-wsl.tar.gz
+EOF
+}
+
+# Build command
+cmd_build() {
+    local distro_name="$DEFAULT_DISTRO_NAME"
+    local modules="$DEFAULT_MODULES"
+    local alpine_version="$ALPINE_VERSION"
+    local arch="$ALPINE_ARCH"
+    local output_file="alpine-wsl.tar.gz"
+    local build_dir="$DEFAULT_BUILD_DIR"
+    local no_import=false
+    local import_only=""
+    local config_file=""
+    
+    # Parse build options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --name)
+                distro_name="$2"
+                shift 2
+                ;;
+            --modules)
+                modules="$2"
+                shift 2
+                ;;
+            --version)
+                alpine_version="$2"
+                shift 2
+                ;;
+            --arch)
+                arch="$2"
+                shift 2
+                ;;
+            --output)
+                output_file="$2"
+                shift 2
+                ;;
+            --build-dir)
+                build_dir="$2"
+                shift 2
+                ;;
+            --no-import)
+                no_import=true
+                shift
+                ;;
+            --import-only)
+                import_only="$2"
+                shift 2
+                ;;
+            --config)
+                config_file="$2"
+                shift 2
+                ;;
+            --help|-h)
+                print_build_usage
+                return 0
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                print_build_usage
+                return 1
+                ;;
+        esac
+    done
+    
+    # Load configuration if specified
+    if [[ -n "$config_file" ]]; then
+        load_config "$config_file"
+    fi
+    
+    # Import only mode
+    if [[ -n "$import_only" ]]; then
+        log_info "Import-only mode"
+        import_distribution "$distro_name" "$import_only"
+        return $?
+    fi
+    
+    # Validate inputs
+    if ! validate_distribution_name "$distro_name"; then
+        return 1
+    fi
+    
+    # Check prerequisites
+    log_info "Checking prerequisites..."
+    if ! check_dependencies wget tar gzip sha256sum fakeroot; then
+        return 1
+    fi
+    
+    # Setup build directory
+    log_info "Setting up build environment..."
+    rm -rf "$build_dir"
+    mkdir -p "$build_dir"
+    
+    local rootfs_dir="$build_dir/rootfs"
+    local work_dir="$build_dir/work"
+    
+    # Prepare minirootfs
+    if ! prepare_minirootfs "$alpine_version" "$arch" "$rootfs_dir" "$work_dir"; then
+        log_error "Failed to prepare minirootfs"
+        return 1
+    fi
+    
+    # Configure WSL
+    create_wsl_conf "$rootfs_dir" "wsluser" "false"
+    create_wsl_distribution_conf "$rootfs_dir" "$distro_name"
+    
+    # Apply modules
+    log_info "Applying modules: $modules"
+    if [[ "$modules" == "all" ]]; then
+        modules="base,docker,claude-code,development"
+    fi
+    
+    # Process each module
+    IFS=',' read -ra module_array <<< "$modules"
+    for module in "${module_array[@]}"; do
+        module=$(echo "$module" | tr -d ' ')
+        if ! apply_module "$rootfs_dir" "$module"; then
+            log_error "Failed to apply module: $module"
+            return 1
+        fi
+    done
+    
+    # Create OOBE script
+    create_oobe_script "$rootfs_dir" "$distro_name"
+    
+    # Package distribution
+    local package_path="$build_dir/$output_file"
+    if ! package_rootfs "$rootfs_dir" "$package_path"; then
+        log_error "Failed to package distribution"
+        return 1
+    fi
+    
+    # Create .wsl file
+    create_wsl_file "$package_path"
+    
+    # Import to WSL if requested
+    if [[ "$no_import" == "false" ]]; then
+        log_info "Importing distribution to WSL..."
+        if distribution_exists "$distro_name"; then
+            log_warning "Distribution '$distro_name' already exists"
+            read -p "Replace it? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                unregister_distribution "$distro_name"
+            else
+                log_info "Skipping import"
+                no_import=true
+            fi
+        fi
+        
+        if [[ "$no_import" == "false" ]]; then
+            import_distribution "$distro_name" "$package_path"
+        fi
+    fi
+    
+    # Summary
+    log_success "Build complete!"
+    log_info "Distribution files:"
+    log_info "  - $package_path"
+    log_info "  - ${package_path%.tar.gz}.wsl"
+    
+    if [[ "$no_import" == "false" ]]; then
+        log_info ""
+        log_info "To start the distribution:"
+        log_info "  wsl -d $distro_name"
+    fi
+}
+
+# Apply a module to the rootfs
+apply_module() {
+    local rootfs_dir="$1"
+    local module_name="$2"
+    local module_dir="${SCRIPT_DIR}/src/modules/${module_name}"
+    
+    if [[ ! -d "$module_dir" ]]; then
+        log_error "Module not found: $module_name"
+        return 1
+    fi
+    
+    log_progress "Applying module: $module_name"
+    
+    # Run module installation script if it exists
+    if [[ -f "$module_dir/install.sh" ]]; then
+        # shellcheck source=/dev/null
+        if ROOTFS_DIR="$rootfs_dir" bash "$module_dir/install.sh"; then
+            log_success "Module $module_name applied successfully"
+        else
+            log_error "Module $module_name installation failed"
+            return 1
+        fi
+    else
+        log_warning "Module $module_name has no install script"
+    fi
+    
+    return 0
+}
+
+# Create OOBE script
+create_oobe_script() {
+    local rootfs_dir="$1"
+    local distro_name="$2"
+    
+    log_progress "Creating first-boot setup script..."
+    
+    cat > "$rootfs_dir/etc/oobe.sh" << 'EOF'
+#!/bin/sh
+# Alpine WSL First-Boot Setup
+
+# Exit if already run
+if [ -f /etc/oobe.done ]; then
+    exit 0
+fi
+
+echo "╔══════════════════════════════════════════╗"
+echo "║   Welcome to Alpine Linux for WSL!       ║"
+echo "╚══════════════════════════════════════════╝"
+echo ""
+echo "Running first-time setup..."
+
+# Mark as complete
+touch /etc/oobe.done
+
+echo ""
+echo "✓ First-time setup complete!"
+echo ""
+echo "The distribution will now restart with the default user."
+echo "Please close this window and run:"
+echo "  wsl --terminate $WSL_DISTRO_NAME"
+echo "  wsl -d $WSL_DISTRO_NAME"
+echo ""
+EOF
+    
+    chmod +x "$rootfs_dir/etc/oobe.sh"
+}
+
+# Reset command
+cmd_reset() {
+    local distro_name=""
+    local preserve_data=false
+    
+    # Parse reset options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --preserve)
+                preserve_data=true
+                shift
+                ;;
+            --help|-h)
+                cat << EOF
+Reset (Remove) Alpine WSL Distribution
+
+Usage: $(basename "$0") reset <name> [options]
+
+Options:
+    --preserve      Export distribution data before removal
+    --help, -h      Show this help message
+
+Examples:
+    $(basename "$0") reset alpine-wsl
+    $(basename "$0") reset my-alpine --preserve
+EOF
+                return 0
+                ;;
+            *)
+                if [[ -z "$distro_name" ]]; then
+                    distro_name="$1"
+                    shift
+                else
+                    log_error "Unknown option: $1"
+                    return 1
+                fi
+                ;;
+        esac
+    done
+    
+    if [[ -z "$distro_name" ]]; then
+        log_error "Distribution name required"
+        return 1
+    fi
+    
+    # Check sudo access if needed
+    if [[ "$EUID" -ne 0 ]]; then
+        log_info "Some cleanup operations may require sudo access"
+    fi
+    
+    # Find WSL executable
+    if ! find_wsl_exe; then
+        return 1
+    fi
+    
+    # Unregister distribution
+    unregister_distribution "$distro_name" "$preserve_data"
+}
+
+# Test command
+cmd_test() {
+    local test_type="all"
+    local cleanup_only=false
+    
+    # Parse test options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --unit)
+                test_type="unit"
+                shift
+                ;;
+            --integration)
+                test_type="integration"
+                shift
+                ;;
+            --cleanup)
+                cleanup_only=true
+                shift
+                ;;
+            --help|-h)
+                cat << EOF
+Run Tests
+
+Usage: $(basename "$0") test [options]
+
+Options:
+    --unit          Run unit tests only
+    --integration   Run integration tests only
+    --cleanup       Clean up test distributions
+    --help, -h      Show this help message
+
+Examples:
+    $(basename "$0") test
+    $(basename "$0") test --unit
+    $(basename "$0") test --cleanup
+EOF
+                return 0
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                return 1
+                ;;
+        esac
+    done
+    
+    # Cleanup test distributions
+    if [[ "$cleanup_only" == "true" ]]; then
+        log_info "Cleaning up test distributions..."
+        local test_distros
+        test_distros=$(get_wsl_distributions | grep "^${TEST_DISTRIBUTION_PREFIX}")
+        
+        if [[ -z "$test_distros" ]]; then
+            log_info "No test distributions found"
+            return 0
+        fi
+        
+        echo "$test_distros" | while read -r distro; do
+            log_progress "Removing: $distro"
+            unregister_distribution "$distro"
+        done
+        
+        return 0
+    fi
+    
+    # Run tests
+    log_info "Running tests: $test_type"
+    
+    # Check for test framework
+    if ! command_exists bats; then
+        log_error "BATS test framework not found"
+        log_info "Install with: sudo apt-get install bats"
+        return 1
+    fi
+    
+    # Run appropriate tests
+    case "$test_type" in
+        unit)
+            bats "${SCRIPT_DIR}"/tests/unit/*.bats
+            ;;
+        integration)
+            bats "${SCRIPT_DIR}"/tests/integration/*.bats
+            ;;
+        all)
+            bats "${SCRIPT_DIR}"/tests/**/*.bats
+            ;;
+    esac
+}
+
+# Module command
+cmd_module() {
+    local subcmd="${1:-list}"
+    shift || true
+    
+    case "$subcmd" in
+        list)
+            log_info "Available modules:"
+            for module_dir in "${SCRIPT_DIR}"/src/modules/*/; do
+                if [[ -d "$module_dir" ]]; then
+                    local module_name
+                    module_name=$(basename "$module_dir")
+                    local description="No description"
+                    
+                    # Read metadata if available
+                    if [[ -f "$module_dir/metadata.yaml" ]]; then
+                        description=$(grep "^description:" "$module_dir/metadata.yaml" | cut -d: -f2- | sed 's/^ *//')
+                    fi
+                    
+                    printf "  %-15s %s\n" "$module_name" "$description"
+                fi
+            done
+            ;;
+        
+        info)
+            local module_name="$1"
+            if [[ -z "$module_name" ]]; then
+                log_error "Module name required"
+                return 1
+            fi
+            
+            local module_dir="${SCRIPT_DIR}/src/modules/${module_name}"
+            if [[ ! -d "$module_dir" ]]; then
+                log_error "Module not found: $module_name"
+                return 1
+            fi
+            
+            log_info "Module: $module_name"
+            if [[ -f "$module_dir/metadata.yaml" ]]; then
+                cat "$module_dir/metadata.yaml"
+            else
+                log_warning "No metadata available"
+            fi
+            
+            if [[ -f "$module_dir/README.md" ]]; then
+                echo ""
+                cat "$module_dir/README.md"
+            fi
+            ;;
+        
+        --help|-h|help)
+            cat << EOF
+Manage Distribution Modules
+
+Usage: $(basename "$0") module <subcommand> [options]
+
+Subcommands:
+    list        List available modules
+    info        Show information about a module
+
+Examples:
+    $(basename "$0") module list
+    $(basename "$0") module info docker
+EOF
+            ;;
+        
+        *)
+            log_error "Unknown module subcommand: $subcmd"
+            return 1
+            ;;
+    esac
+}
+
+# List command
+cmd_list() {
+    log_info "WSL Distributions:"
+    
+    # Find WSL executable
+    if ! find_wsl_exe; then
+        return 1
+    fi
+    
+    # Use our detailed listing function
+    list_distributions_detailed
+}
+
+# Main command dispatcher
+main() {
+    # Global options
+    while [[ $# -gt 0 ]] && [[ "$1" =~ ^-- ]]; do
+        case "$1" in
+            --debug)
+                DEBUG=1
+                set -x
+                shift
+                ;;
+            --verbose)
+                VERBOSE=1
+                shift
+                ;;
+            --dry-run)
+                DRY_RUN=1
+                shift
+                ;;
+            --version|-v)
+                echo "Alpine WSL Management Tool v${VERSION}"
+                return 0
+                ;;
+            --help|-h)
+                print_usage
+                return 0
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    
+    # Setup error handling
+    setup_error_handling
+    
+    # Get command
+    local cmd="${1:-help}"
+    shift || true
+    
+    # Dispatch command
+    case "$cmd" in
+        build)
+            cmd_build "$@"
+            ;;
+        install)
+            # Alias for build --import-only
+            cmd_build --import-only "$@"
+            ;;
+        reset)
+            cmd_reset "$@"
+            ;;
+        test)
+            cmd_test "$@"
+            ;;
+        module)
+            cmd_module "$@"
+            ;;
+        list)
+            cmd_list "$@"
+            ;;
+        help)
+            print_usage
+            ;;
+        *)
+            log_error "Unknown command: $cmd"
+            print_usage
+            return 1
+            ;;
+    esac
+}
+
+# Run main function
+main "$@"

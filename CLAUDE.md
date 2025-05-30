@@ -4,115 +4,182 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains scripts for building a customized Alpine Linux distribution for Windows Subsystem for Linux (WSL). It uses Alpine's alpine-chroot-install script to create a lightweight Alpine installation with specific tools and configurations pre-installed.
+This repository contains a safe, modular system for building customized Alpine Linux distributions for Windows Subsystem for Linux (WSL). The system has been completely refactored to use Alpine's official minirootfs instead of dangerous chroot operations.
 
-## Repository Structure
+## Current Architecture
 
-- `wsl-alpine-build.sh` - Main script to build and install Alpine WSL distribution
-- `wsl-alpine-reset.sh` - Script to unregister and clean up WSL distribution
-- `wsl-alpine-test.sh` - Script for testing the build process with isolated test distributions
-- `wsl-alpine-test-cleanup.sh` - Utility to clean up test distributions
-- Documentation:
-  - `README.md` - Main documentation with usage instructions
-  - `REQUIREMENTS.md` - Project rationale, requirements, and design principles
-  - `IMPROVEMENTS.md` - Implemented and future improvements
-  - `TESTING.md` - Detailed testing instructions and troubleshooting
-  - `ADVANCED-WSL.md` - Advanced WSL configuration and features
-  - `CLAUDE.md` - This file, providing guidance for Claude Code
+### Main Entry Point
+- `wsl-alpine` - Single command with subcommands for all operations
+  - `build` - Build a new Alpine WSL distribution
+  - `reset` - Remove a WSL distribution
+  - `test` - Run test suite
+  - `module` - Manage distribution modules
+  - `list` - List WSL distributions
 
-## Prerequisites
-
-- **Host Environment**: A Linux distribution with WSL access (tested on Debian WSL)
-- **Required Tools**:
-  - `sudo` - for elevated permissions
-  - `wget` - to download the alpine-chroot-install script
-  - `sha1sum` - for verifying downloads
-  - `tar` and `gzip` - for packaging the WSL distribution
-  - `wsl.exe` - Windows Subsystem for Linux command (accessible from Linux)
-
-## Configuration
-
-Before running any scripts, create a `.env` file with these variables:
+### Source Structure
 ```
-SUDO=sudo
-WSL_DISTRIBUTION_NAME=alp2
-CHROOT_DIR="/tmp/$WSL_DISTRIBUTION_NAME"
+src/
+├── lib/                     # Reusable libraries
+│   ├── common.sh           # Logging, error handling, utilities
+│   ├── minirootfs.sh       # Alpine minirootfs operations
+│   ├── wsl.sh              # WSL-specific operations
+│   └── package.sh          # APK package management
+└── modules/                 # Feature modules
+    ├── base/               # Core Alpine system
+    ├── docker/             # Docker container runtime
+    ├── claude-code/        # Claude Code CLI integration
+    └── development/        # Development tools
 ```
 
-Optional variables include:
+### Module System
+
+Each module contains:
+- `metadata.yaml` - Module information and dependencies
+- `install.sh` - Installation script (sourced with ROOTFS_DIR set)
+- `README.md` - Module documentation
+
+Modules are applied sequentially during build. The base module is always required.
+
+## Key Design Decisions
+
+1. **Safety First**: No bind mounts or chroot operations. Uses fakeroot for packaging.
+2. **Modular Architecture**: Features organized into independent modules.
+3. **Comprehensive Testing**: Full test coverage with BATS framework.
+4. **Clean Separation**: Libraries handle specific concerns (WSL, packages, etc.).
+5. **Error Handling**: Consistent error handling with proper cleanup.
+
+## Development Guidelines
+
+### When Adding Features
+
+1. **Determine Module Placement**:
+   - System-level features → base module
+   - Container features → docker module
+   - Development tools → development module
+   - New category → create new module
+
+2. **Module Creation**:
+   ```bash
+   # Create module structure
+   mkdir -p src/modules/mymodule
+   
+   # Create metadata
+   cat > src/modules/mymodule/metadata.yaml << EOF
+   name: mymodule
+   version: 1.0.0
+   description: My custom module
+   dependencies: [base]
+   packages:
+     - package1
+     - package2
+   EOF
+   
+   # Create install script (see existing modules)
+   ```
+
+3. **Testing Requirements**:
+   - Add unit tests for new library functions
+   - Add integration tests for new commands
+   - Ensure all tests pass: `./wsl-alpine test`
+
+### Code Style
+
+- Use `shellcheck` for all shell scripts
+- Follow existing patterns in libraries
+- Use consistent logging functions (log_info, log_error, etc.)
+- Handle errors with proper cleanup
+- Document functions with comments
+
+### Common Tasks
+
+**Building a Distribution**:
+```bash
+# Standard build with all modules
+./wsl-alpine build --modules all
+
+# Custom build
+./wsl-alpine build --name my-alpine --modules base,docker
 ```
-ALPINE_VERSION=v3.18            # Specific Alpine version
-EDITOR_PACKAGES="helix vim"     # Editor packages to install
-TOOL_PACKAGES="fd bat zoxide"   # Terminal utility packages
-EXTRA_PACKAGES="git curl"       # Additional packages
-COMPRESSION_LEVEL="--fast"      # gzip compression level
-SYSTEMD_ENABLED=false           # Enable systemd support
-WSL_INSTALL_PATH="$HOME/alpine.wsl.gz"  # Output file path
+
+**Testing Changes**:
+```bash
+# Run all tests
+./wsl-alpine test
+
+# Run specific test file
+bats tests/unit/test_common.bats
+
+# Debug mode
+DEBUG=1 ./wsl-alpine build --dry-run
 ```
 
-## Main Scripts
+**Adding Packages**:
+1. Find appropriate module
+2. Add to `packages:` list in metadata.yaml
+3. Or add to install.sh for complex installation
 
-### wsl-alpine-build.sh
+## Important Files
 
-This script:
-1. Downloads and validates the alpine-chroot-install script
-2. Creates a minimal Alpine chroot with essential packages
-3. Configures WSL-specific settings and terminal profiles
-4. Adds a first-boot setup script (oobe.sh) for additional configuration
-5. Bundles everything into a WSL-compatible archive
-6. Installs the new distribution in WSL
+### Configuration
+- `.env` - Local environment configuration (not committed)
+- `config/defaults.conf` - Default configuration values
 
-### wsl-alpine-reset.sh
+### Documentation
+- `README.md` - User-facing documentation
+- `MIGRATION.md` - Migration guide from old system
+- `TESTING.md` - Testing and troubleshooting guide
+- `REQUIREMENTS.md` - Original project requirements
 
-This script:
-1. Unregisters the Alpine WSL distribution
-2. Removes temporary files
-3. Cleans up the chroot directory
-
-### wsl-alpine-test.sh
-
-This script:
-1. Creates a uniquely named test distribution
-2. Offers different test modes (standard, quick, advanced)
-3. Verifies the installation works properly
-4. Provides cleanup options
-
-### wsl-alpine-test-cleanup.sh
-
-This script:
-1. Identifies test distributions based on naming pattern
-2. Safely unregisters test distributions
-3. Cleans up associated files and directories
-
-## Workflow
-
-1. Create the `.env` file with your preferred configuration
-2. Run `./wsl-alpine-build.sh` to build and install the Alpine WSL distribution
-3. After first boot, follow the on-screen instructions to complete installation
-4. If needed, run `./wsl-alpine-reset.sh` to clean up and remove the distribution
-
-## Custom Configurations
-
-The build process includes several customizations:
-- Helix editor with tree-sitter syntax highlighting for multiple languages
-- Docker with lazydocker for container management
-- Terminal styling with Gruvbox Dark theme
-- zoxide, fzf, bat, and fd for improved terminal experience
-- First-boot setup script for additional package installation
-
-## Testing and Development
-
-When developing new features:
-1. Use the test script to create isolated test distributions
-2. Add configuration options in the `.env` file and set defaults in the script
-3. Follow the error handling and safety patterns in existing code
-4. Add appropriate progress indicators and user feedback
-5. Document changes in the appropriate markdown files
-6. Update this file if necessary for Claude Code guidance
+### Legacy
+- `legacy/` - Deprecated scripts (reference only)
 
 ## Troubleshooting
 
-- If the script fails with permission errors, verify sudo access
-- If WSL commands fail, ensure you're running from a proper WSL environment with Windows access
-- The generated distribution file is created at `~/alpine.wsl.gz`
-- See TESTING.md for detailed troubleshooting guidance
+### Build Failures
+1. Check prerequisites: `check_dependencies wget tar gzip fakeroot`
+2. Enable debug mode: `DEBUG=1 ./wsl-alpine build`
+3. Check test results: `./wsl-alpine test`
+
+### Module Issues
+1. Verify module exists: `./wsl-alpine module list`
+2. Check module info: `./wsl-alpine module info <name>`
+3. Ensure dependencies are included
+
+### WSL Issues
+1. Ensure running from WSL environment
+2. Check WSL executable: `which wsl.exe`
+3. Add Windows paths if needed: `/mnt/c/Windows/System32`
+
+## Claude Code Integration
+
+The project includes a claude-code module that:
+1. Installs Node.js and npm
+2. Provides `install-claude-code` command
+3. Includes Docker-aware wrapper
+4. Sets up proper configuration
+
+To use Claude Code after building:
+```bash
+# In the Alpine WSL distribution
+install-claude-code
+claude login
+```
+
+## Future Improvements
+
+Potential areas for enhancement:
+1. Module dependency resolution
+2. Module versioning and updates
+3. GUI module management tool
+4. Cloud-based module repository
+5. Automated testing in CI/CD
+
+## Best Practices
+
+1. **Always Test**: Run tests before committing changes
+2. **Document Changes**: Update relevant documentation
+3. **Maintain Compatibility**: Don't break existing functionality
+4. **Keep It Simple**: Prefer clarity over cleverness
+5. **Error Handling**: Always handle errors gracefully
+
+When working with this codebase, prioritize safety, modularity, and maintainability.

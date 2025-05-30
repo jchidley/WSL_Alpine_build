@@ -1,0 +1,31 @@
+name: development
+version: 1.0.0
+description: Modern development tools including Helix editor and CLI utilities
+author: Alpine WSL Build System
+dependencies: 
+  - base
+packages:
+  - helix
+  - vim
+  - nano
+  - fd
+  - bat
+  - zoxide
+  - fzf
+  - ripgrep
+  - tree
+  - htop
+  - ncdu
+  - jq
+  - yq
+  - git
+  - git-lfs
+  - curl
+  - wget
+  - rsync
+  - tmux
+  - python3
+  - py3-pip
+  - go
+  - rust
+  - cargo

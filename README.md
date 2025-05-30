@@ -1,208 +1,239 @@
 # WSL Alpine Build
 
-A comprehensive set of scripts to build a customized Alpine Linux distribution for Windows Subsystem for Linux (WSL).
+A safe, modular system for building customized Alpine Linux distributions for Windows Subsystem for Linux (WSL).
 
-## Overview
+## 🚀 Quick Start
 
-This project creates a lightweight, isolated Alpine Linux WSL distribution specifically designed for running Docker without the overhead of Docker Desktop. For detailed rationale and requirements, see [REQUIREMENTS.md](REQUIREMENTS.md).
+```bash
+# Build Alpine WSL with all features
+./wsl-alpine build --modules all
+
+# Or select specific modules
+./wsl-alpine build --modules base,docker,development
+
+# List available modules
+./wsl-alpine module list
+```
+
+## 🎯 Overview
+
+This project creates lightweight Alpine Linux WSL distributions using a modular approach. Unlike traditional methods that use dangerous chroot operations, we use Alpine's official minirootfs for a safer build process.
 
 ### Key Features
 
-- **Helix editor** with tree-sitter syntax highlighting for multiple languages
-- **Docker** with lazydocker for container management
-- **Terminal customization** with Gruvbox Dark theme
-- **Modern command-line tools** (zoxide, fzf, bat, fd)
-- **First-boot setup** for additional package installation
+- **🔒 Safe Build Process** - No bind mounts or chroot operations required
+- **📦 Modular System** - Pick and choose features through modules
+- **🧪 Fully Tested** - Comprehensive test suite with BATS
+- **🚀 Fast & Lightweight** - Minimal Alpine base with on-demand features
+- **🔧 Easy Customization** - Add your own modules for specific needs
 
-## Prerequisites
+## 📋 Prerequisites
 
-- **Host Environment**: A Linux distribution with WSL access (tested on Debian WSL)
+- **Environment**: WSL 1 or WSL 2 on Windows 10/11
+- **Host OS**: Any Linux distribution running in WSL
 - **Required Tools**:
-  - `sudo` - for elevated permissions
-  - `wget` - to download the alpine-chroot-install script
-  - `sha1sum` - for verifying downloads
-  - `tar` and `gzip` - for packaging the WSL distribution
-  - `wsl.exe` - Windows Subsystem for Linux command (accessible from Linux)
+  - `wget` - For downloading Alpine minirootfs
+  - `tar` & `gzip` - For packaging
+  - `fakeroot` - For preserving file permissions
+  - Basic tools: `sha256sum`, `grep`, `sed`
 
-## Quick Start
+## 🏗️ Available Modules
 
-1. **Setup Configuration**
-   ```bash
-   # Create a .env file with basic configuration
-   cat > .env << EOF
-   SUDO=sudo
-   WSL_DISTRIBUTION_NAME=alp2
-   CHROOT_DIR="/tmp/alp2"
-   EOF
-   ```
+### Base Module (Required)
+Essential Alpine system with WSL configuration
+- Core Alpine packages
+- WSL integration (wsl.conf)
+- Default user setup (wsluser)
+- OpenRC for service management
 
-2. **Run the Build Script**
-   ```bash
-   # Make sure the script is executable
-   chmod +x wsl-alpine-build.sh
-   
-   # Run the script (will auto-configure paths)
-   sudo ./wsl-alpine-build.sh
-   ```
+### Docker Module
+Complete Docker environment for containers
+- Docker Engine & CLI
+- Docker Compose & BuildX
+- Lazydocker TUI
+- Optimized for WSL
 
-3. **First Boot Setup**
-   ```bash
-   # Launch the new distribution
-   wsl -d alp2
-   
-   # After first boot completes, restart the distribution
-   wsl -t alp2 && wsl -d alp2
-   ```
+### Development Module
+Modern development tools and editors
+- Helix editor with syntax highlighting
+- Modern CLI tools (fd, bat, ripgrep, fzf)
+- Git, tmux, and language support
+- Shell enhancements
 
-## Advanced Configuration
+### Claude Code Module
+AI-powered development assistant
+- Node.js runtime
+- Claude Code CLI installer
+- Docker-aware configuration
+- API integration support
 
-Create a `.env` file with additional options:
+## 🛠️ Usage
 
-```bash
-# Basic Configuration
-SUDO=sudo
-WSL_DISTRIBUTION_NAME=alp2
-CHROOT_DIR="/tmp/alp2"
-
-# Optional Configuration
-ALPINE_VERSION=v3.18             # Specific Alpine version (default: edge)
-EXTRA_PACKAGES="vim git curl"    # Additional packages to install
-COMPRESSION_LEVEL=--best         # gzip compression level (default: --fast)
-SYSTEMD_ENABLED=true             # Enable systemd (default: false)
-```
-
-## Claude Code Installation
-
-After building your Alpine WSL distribution, you can install Claude Code for AI-powered coding assistance:
-
-### Option 1: Manual Installation (Post-Build)
+### Basic Commands
 
 ```bash
-# Enter your Alpine WSL distribution
-wsl.exe -d alp2
+# Show help
+./wsl-alpine help
 
-# Run the installation script
-./wsl-alpine-claude-code.sh
+# Build a distribution
+./wsl-alpine build [options]
 
-# Or install in Docker for additional isolation
-./wsl-alpine-claude-code.sh --docker
+# Remove a distribution
+./wsl-alpine reset <name>
+
+# List distributions
+./wsl-alpine list
+
+# Run tests
+./wsl-alpine test
 ```
 
-### Option 2: Automatic Installation (During Build)
-
-Add to your `.env` file before building:
+### Build Options
 
 ```bash
-INSTALL_CLAUDE_CODE=true         # Install Claude Code during first boot
-ANTHROPIC_API_KEY=sk-ant-...     # Optional: Pre-configure API key
+./wsl-alpine build \
+  --name my-alpine \           # Distribution name
+  --modules base,docker \       # Modules to install
+  --version 3.18.6 \           # Alpine version
+  --arch x86_64 \              # Architecture
+  --output alpine.tar.gz \     # Output file
+  --no-import                  # Build only, don't import
 ```
 
-### Authentication
-
-Claude Code requires authentication via one of these methods:
-
-1. **Claude Max Subscription**: Run `claude login` and follow the browser flow
-2. **API Key**: Set `ANTHROPIC_API_KEY` environment variable
-
-For more details, see the [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code).
-
-## Usage
-
-### Starting Alpine Linux
-
-After installation, you can start Alpine Linux with:
+### Module Management
 
 ```bash
-# Start as your user
-wsl.exe -d alpine-wsl -u $USER --cd /home/$USER
+# List available modules
+./wsl-alpine module list
 
-# Or if you used a custom name
-wsl.exe -d <distro-name> -u <username> --cd /home/<username>
+# Get module information
+./wsl-alpine module info docker
 ```
 
-### Running as Root
+## 📝 Configuration
 
-To run Alpine as root, you have several options:
+### Environment Variables
 
-#### 1. Direct root access:
-```bash
-wsl.exe -d alpine-wsl -u root --cd /
-```
-
-#### 2. From within Alpine as your user:
-```bash
-# Switch to root
-sudo su -
-
-# Or run a single command as root
-sudo <command>
-```
-
-#### 3. Run a specific command as root:
-```bash
-wsl.exe -d alpine-wsl -u root --cd / -e <command>
-```
-
-#### 4. If you need to fix something before the user setup:
-```bash
-# Start as root directly
-wsl.exe -d alpine-wsl -u root --cd /
-
-# Then you can manually run the setup if needed
-/root/setup-alpine-wsl.sh
-```
-
-Since the setup configures sudo access for the wheel group, your user can use `sudo` for administrative tasks, which is the recommended approach for security. But when you need direct root access (like for system recovery or initial setup), use the `-u root` option with wsl.exe.
-
-## Testing
-
-For testing without affecting your existing WSL setup:
+Create a `.env` file for persistent configuration:
 
 ```bash
-# Run with automatic test name generation
-./wsl-alpine-test.sh
+# Distribution settings
+WSL_DISTRIBUTION_NAME=alpine-wsl
+ALPINE_VERSION=3.18.6
+ALPINE_ARCH=x86_64
+
+# Build settings
+BUILD_DIR=/tmp/alpine-wsl-build
+CACHE_DIR=$HOME/.cache/alpine-wsl
+
+# Module selection
+DEFAULT_MODULES=base,docker,development
 ```
 
-## Cleanup
+### Custom Modules
 
-### Automated Cleanup
+Create your own modules in `src/modules/<name>/`:
+
+1. Create module directory
+2. Add `metadata.yaml` with module information
+3. Add `install.sh` script for installation logic
+4. Add `README.md` for documentation
+
+Example structure:
+```
+src/modules/mymodule/
+├── metadata.yaml
+├── install.sh
+└── README.md
+```
+
+## 🧪 Testing
+
+The project includes comprehensive tests using BATS:
 
 ```bash
-# Comprehensive cleanup with detailed scanning
-sudo ./wsl-alpine-cleanup.sh
+# Run all tests
+./wsl-alpine test
 
-# Quick reset for default distribution
-sudo ./wsl-alpine-reset.sh
+# Run unit tests only
+./wsl-alpine test --unit
 
-# Clean up all test distributions
-sudo ./wsl-alpine-test-cleanup.sh
+# Run integration tests
+./wsl-alpine test --integration
+
+# Clean up test distributions
+./wsl-alpine test --cleanup
 ```
 
-### Manual Cleanup
+## 🔄 Migration from Old Scripts
 
-See [CLEANUP-GUIDE.md](CLEANUP-GUIDE.md) for:
-- Detailed cleanup instructions
-- Troubleshooting cleanup issues
-- Manual removal steps
-- Windows-side cleanup
+If you're using the previous version, see [MIGRATION.md](MIGRATION.md) for upgrade instructions.
 
-## Documentation
+Key differences:
+- Single entry point (`wsl-alpine`) instead of multiple scripts
+- Modular architecture instead of monolithic build
+- Safer minirootfs approach instead of chroot operations
+- Better error handling and testing
 
-### Project Documentation
-- See [REQUIREMENTS.md](REQUIREMENTS.md) for project rationale and requirements
-- See [CLAUDE.md](CLAUDE.md) for project overview and AI guidance
-- See [IMPROVEMENTS.md](IMPROVEMENTS.md) for implemented features and roadmap
-- See [TESTING.md](TESTING.md) for detailed testing instructions
-- See [ADVANCED-WSL.md](ADVANCED-WSL.md) for advanced WSL configuration and features
-- See [CLEANUP-GUIDE.md](CLEANUP-GUIDE.md) for comprehensive cleanup instructions
+## 📚 Documentation
 
-### Related Articles
-This project builds upon concepts detailed in these published articles:
-- [Systems-on-Systems](https://jchidley.github.io/mkdocs-material-test/Other/2023-09-24-Systems-on-Systems/) - Running systems within systems (WSL, Docker, VMs)
-- [File Systems](https://jchidley.github.io/mkdocs-material-test/Linux/2020-01-28-FileSystems/) - Linux file systems including OverlayFS
+- [REQUIREMENTS.md](REQUIREMENTS.md) - Project requirements and design decisions
+- [MIGRATION.md](MIGRATION.md) - Migration guide from old scripts
+- [TESTING.md](TESTING.md) - Testing guide and troubleshooting
+- [ADVANCED-WSL.md](ADVANCED-WSL.md) - Advanced WSL configuration
+- [CLAUDE.md](CLAUDE.md) - AI assistance integration
 
-## License
+## 🏛️ Architecture
 
-This project is dual-licensed under:
-- [MIT License](LICENSE-MIT)
-- [Apache License, Version 2.0](LICENSE-APACHE)
+```
+wsl-alpine                    # Main entry point
+├── src/lib/                  # Reusable libraries
+│   ├── common.sh            # Common functions
+│   ├── minirootfs.sh        # Minirootfs operations
+│   ├── wsl.sh               # WSL management
+│   └── package.sh           # Package management
+├── src/modules/              # Feature modules
+│   ├── base/                # Core system
+│   ├── docker/              # Container runtime
+│   ├── claude-code/         # AI assistant
+│   └── development/         # Dev tools
+└── tests/                    # Test suite
+    ├── unit/                # Unit tests
+    └── integration/         # Integration tests
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
+
+## 📄 License
+
+This project is dual-licensed under MIT and Apache 2.0 licenses. See [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE) for details.
+
+## 🙏 Acknowledgments
+
+- Alpine Linux team for the excellent minimal distribution
+- Microsoft WSL team for Linux on Windows
+- The open source community for the amazing tools included
+
+## ⚠️ Troubleshooting
+
+### Common Issues
+
+**Issue**: "wsl.exe not found"
+- Ensure you're running from within WSL
+- Try: `export PATH=$PATH:/mnt/c/Windows/System32`
+
+**Issue**: "Permission denied"
+- Some operations require sudo for system packages
+- File permissions are preserved using fakeroot
+
+**Issue**: "Module not found"
+- Check available modules: `./wsl-alpine module list`
+- Ensure module name is spelled correctly
+
+For more issues, see [TESTING.md](TESTING.md) or open an issue on GitHub.

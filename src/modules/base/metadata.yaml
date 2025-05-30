@@ -1,0 +1,21 @@
+name: base
+version: 1.0.0
+description: Base Alpine system with essential packages and WSL configuration
+author: Alpine WSL Build System
+dependencies: []
+packages:
+  - alpine-base
+  - openrc
+  - util-linux
+  - sudo
+  - bash
+  - shadow
+  - e2fsprogs
+  - e2fsprogs-extra
+  - coreutils
+  - procps
+  - findutils
+  - grep
+  - sed
+  - gawk
+  - which
