@@ -677,3 +677,143 @@ When encountering ERROR_UNHANDLED_EXCEPTION, we systematically tested:
 5. **Document what doesn't work** - Failed attempts are valuable learning for others
 6. **Fakeroot is powerful** - Allows root-like operations without sudo risks
 7. **Path formats matter in WSL** - Windows and Linux path mixing requires careful attention
+
+## Recent Failures and Additional Lessons (May 2025)
+
+### Tree-sitter Package Failures
+
+**What Failed**: Including tree-sitter packages for Helix syntax highlighting caused build failures.
+
+**Symptoms**:
+- APK installation failed with "unsatisfiable constraints"
+- Packages like `tree-sitter-markdown@testing`, `tree-sitter-css`, etc. not found
+- Build process would abort during OOBE script execution
+
+**Root Cause**: Alpine 3.18 repositories don't have tree-sitter packages available, despite being listed in some documentation.
+
+**Resolution**: Removed all tree-sitter-* packages from the installation list. Helix works without syntax highlighting.
+
+**Lesson**: Always verify package availability in the target Alpine version before adding to build scripts.
+
+### Docker Service Startup Issues
+
+**What Failed**: Docker wouldn't start properly in Alpine WSL using standard service commands.
+
+**Symptoms**:
+- `service docker start` command not found (Alpine uses OpenRC, not systemd)
+- `rc-service docker start` would report "WARNING: docker is already starting" but never complete
+- Docker daemon would exit immediately when started manually
+- Permission errors even when user was in docker group
+
+**Root Causes**:
+1. OpenRC wasn't properly initialized in WSL (missing /run/openrc/softlevel)
+2. Alpine uses `rc-service` not `service` command
+3. Docker requires specific OpenRC setup for WSL environment
+
+**Resolution**:
+1. Create OpenRC runtime directory: `mkdir -p /run/openrc && touch /run/openrc/softlevel`
+2. Use `rc-service docker start` instead of `service docker start`
+3. Configure Docker at build time with proper OpenRC symlinks
+4. Start Docker daemon manually if needed: `sudo dockerd > /dev/null 2>&1 &`
+
+**Lesson**: Service management differs significantly between distributions. Alpine's OpenRC requires special handling in WSL.
+
+### Password Security Policy Conflicts
+
+**What Failed**: Initial attempts to relax password policies for development convenience broke the build.
+
+**Symptoms**:
+- OOBE script would fail when setting user passwords
+- PAM configuration errors
+- Login authentication issues after first boot
+
+**Root Cause**: Attempted to modify `/etc/login.defs` and PAM settings that don't exist or work differently in Alpine's minimal setup.
+
+**Resolution**: Removed all password policy modifications. Alpine's defaults work fine for development.
+
+**Lesson**: Don't modify security settings unless absolutely necessary. Alpine's minimal approach means many common Linux configs don't apply.
+
+### WSL Path Translation Errors
+
+**What Failed**: Running WSL commands from within another WSL distribution caused path translation errors.
+
+**Symptoms**:
+- `The system cannot find the path specified` when importing distributions
+- Commands like `wsl.exe --import` would fail mysteriously
+- Path conversions with `wslpath` didn't always work correctly
+
+**Root Cause**: WSL's working directory handling when launching from another WSL instance.
+
+**Resolution**: Always use `wsl.exe -d <distro> --cd /` to ensure proper path context.
+
+**Lesson**: WSL interop has subtle edge cases. The `--cd` option is crucial for reliable cross-distro operations.
+
+### Shell Compatibility Issues
+
+**What Failed**: Scripts written for bash failed in Alpine's default ash shell.
+
+**Symptoms**:
+- `.bashrc` not sourced on login (Alpine uses `.profile`)
+- Bash-specific syntax errors
+- Variable expansion in heredocs behaving differently
+
+**Root Cause**: Alpine uses BusyBox ash as the default shell, not bash.
+
+**Resolution**:
+1. Use `.profile` instead of `.bashrc` for shell configuration
+2. Write POSIX-compliant shell scripts
+3. Install bash if needed, but respect Alpine's minimalist philosophy
+
+**Lesson**: Know your target environment's defaults. Alpine's ash shell requires POSIX compliance.
+
+### Claude Code Installation Challenges
+
+**What Failed**: Initial attempts to install Claude Code during the build process.
+
+**Symptoms**:
+- npm not available during build phase
+- Network access issues during chroot operations
+- Permission problems with global npm installs
+
+**Root Cause**: Trying to install Node.js packages during the build phase rather than first boot.
+
+**Resolution**: Moved Claude Code installation to the OOBE script where network and full environment are available.
+
+**Lesson**: Complex package installations should happen during first boot, not build time.
+
+### Integration Testing Discoveries
+
+**What Failed**: Initial test approaches using complex debugging features.
+
+**Symptoms**:
+- Tests would hang indefinitely
+- Debug output made problems worse
+- BATS tests failed to capture output correctly
+
+**Root Cause**: Over-engineering the debugging infrastructure before understanding the actual problems.
+
+**Resolution**:
+1. Removed complex PS4 debugging output
+2. Simplified error handlers
+3. Used basic BATS features without elaborate helpers
+
+**Lesson**: Start simple. Complex debugging features can obscure rather than illuminate problems.
+
+### Key Takeaways from Recent Sessions
+
+1. **Package Availability**: Always verify packages exist in your target Alpine version
+2. **Service Management**: Alpine's OpenRC is not systemd - learn the differences
+3. **Security Defaults**: Don't modify security settings without understanding implications
+4. **Shell Portability**: Write for POSIX sh, not bash, when targeting Alpine
+5. **Build vs Boot**: Install complex software during first boot, not build time
+6. **WSL Interop**: Use `--cd /` when running WSL commands from another distribution
+7. **Test Simply**: Start with basic tests before adding complex infrastructure
+8. **Document Failures**: Every failure teaches something valuable
+
+### What We Should Have Done Differently
+
+1. **Research First**: Check Alpine package repositories before adding to scripts
+2. **Test Incrementally**: Add one feature at a time and test thoroughly
+3. **Respect Defaults**: Work with Alpine's minimal philosophy, not against it
+4. **Simple First**: Get basic functionality working before adding conveniences
+5. **Know the Environment**: Understand Alpine's ash shell and OpenRC init system
