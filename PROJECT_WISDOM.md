@@ -79,3 +79,7 @@ Impact: Moved all package installations to /etc/oobe.d/ scripts that run on firs
 ### 2025-05-31: Log Output Must Go to Stderr for Command Substitution
 Insight: When capturing function output with $(), all stdout is captured including log messages - breaks command substitution
 Impact: Redirected all logging functions to stderr (>&2) to allow clean output capture while maintaining visible logs
+
+### 2025-05-31: Test Suite Must Validate Correctness, Not Just Execution
+Insight: Tests passing with DRY_RUN=1 only verify code runs without errors, not that it produces correct output
+Impact: Added validation tests that check actual build artifacts - shell paths, OOBE scripts, no chroot operations

@@ -18,12 +18,15 @@ The WSL Alpine Build test suite follows the principle of "Test What You Own, Not
 
 ### 2. Integration Tests (`tests/integration/`)
 - **Purpose**: Test component interactions and workflows
-- **Coverage**: 28 tests covering script integration
+- **Coverage**: 38 tests covering script integration and build validation
 - **Run with**: `./wsl-alpine test --integration`
 - **Examples**:
   - Command-line interface behavior
   - Module loading and configuration
   - Build workflow coordination
+  - Shell configuration validation
+  - OOBE script generation
+  - Package installation approach
 
 ### 3. Real Environment Tests (`tests/integration/test_real_environment.bats`)
 - **Purpose**: Test actual system operations with real resources
@@ -41,12 +44,12 @@ The WSL Alpine Build test suite follows the principle of "Test What You Own, Not
 ```bash
 ./wsl-alpine test
 ```
-Runs all unit and integration tests (58 tests total), excluding real environment tests.
+Runs all unit and integration tests (68 tests total), excluding real environment tests.
 
 ### Specific Test Types
 ```bash
 ./wsl-alpine test --unit         # Unit tests only (30 tests)
-./wsl-alpine test --integration  # Integration tests only (28 tests)
+./wsl-alpine test --integration  # Integration tests only (38 tests)
 ./wsl-alpine test --real         # Real environment tests (4 tests)
 ```
 

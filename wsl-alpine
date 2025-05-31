@@ -485,14 +485,16 @@ EOF
         integration)
             # Run basic integration tests
             bats "${SCRIPT_DIR}"/tests/integration/test_build_workflow.bats \
-                 "${SCRIPT_DIR}"/tests/integration/test_modular_build.bats
+                 "${SCRIPT_DIR}"/tests/integration/test_modular_build.bats \
+                 "${SCRIPT_DIR}"/tests/integration/test_build_validation.bats
             # Note: test_real_environment.bats requires RUN_INTEGRATION_TESTS=1
             ;;
         all)
             # Run all tests except those requiring special environment
             bats "${SCRIPT_DIR}"/tests/unit/*.bats \
                  "${SCRIPT_DIR}"/tests/integration/test_build_workflow.bats \
-                 "${SCRIPT_DIR}"/tests/integration/test_modular_build.bats
+                 "${SCRIPT_DIR}"/tests/integration/test_modular_build.bats \
+                 "${SCRIPT_DIR}"/tests/integration/test_build_validation.bats
             # Note: test_real_environment.bats requires RUN_INTEGRATION_TESTS=1
             ;;
         real)
