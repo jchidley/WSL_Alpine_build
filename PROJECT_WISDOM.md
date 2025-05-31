@@ -83,3 +83,7 @@ Impact: Redirected all logging functions to stderr (>&2) to allow clean output c
 ### 2025-05-31: Test Suite Must Validate Correctness, Not Just Execution
 Insight: Tests passing with DRY_RUN=1 only verify code runs without errors, not that it produces correct output
 Impact: Added validation tests that check actual build artifacts - shell paths, OOBE scripts, no chroot operations
+
+### 2025-05-31: Minimal Package Philosophy Lost in Modular Refactoring
+Insight: Original minimal design (7 packages) expanded to 24+ packages during modularization - defeats Alpine's minimalist purpose
+Impact: Must reduce packages back to essentials: helix fd bat zoxide fzf ripgrep tree - everything else is bloat
