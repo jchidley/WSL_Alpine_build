@@ -305,6 +305,22 @@ echo "╚═══════════════════════�
 echo ""
 echo "Running first-time setup..."
 
+# Run all OOBE scripts in order
+if [ -d /etc/oobe.d ]; then
+    for script in /etc/oobe.d/*.sh; do
+        if [ -x "$script" ]; then
+            echo ""
+            echo "→ Running $(basename "$script")..."
+            if "$script"; then
+                echo "✓ $(basename "$script") completed"
+            else
+                echo "✗ $(basename "$script") failed" >&2
+                exit 1
+            fi
+        fi
+    done
+fi
+
 # Mark as complete
 touch /etc/oobe.done
 

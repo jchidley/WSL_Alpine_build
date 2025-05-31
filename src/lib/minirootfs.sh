@@ -127,6 +127,7 @@ download_minirootfs() {
         return 1
     fi
     
+    # Output the file path (important: must be last output)
     echo "$minirootfs_file"
 }
 

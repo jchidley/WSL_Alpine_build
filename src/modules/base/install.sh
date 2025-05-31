@@ -8,8 +8,6 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # shellcheck source=src/lib/common.sh
 source "${PROJECT_ROOT}/src/lib/common.sh"
-# shellcheck source=src/lib/package.sh
-source "${PROJECT_ROOT}/src/lib/package.sh"
 
 # Check ROOTFS_DIR is set
 if [[ -z "${ROOTFS_DIR:-}" ]]; then
@@ -19,25 +17,47 @@ fi
 
 log_info "Installing base module..."
 
+# Create package installation script for OOBE
+log_progress "Creating package installation script..."
+mkdir -p "$ROOTFS_DIR/etc/oobe.d"
+
+cat > "$ROOTFS_DIR/etc/oobe.d/00-base-packages.sh" << 'EOF'
+#!/bin/sh
+# Install base packages on first boot
+
+echo "Installing base system packages..."
+
 # Update package database
-if ! update_package_db "$ROOTFS_DIR"; then
-    log_error "Failed to update package database"
+if ! apk update; then
+    echo "ERROR: Failed to update package database" >&2
     exit 1
 fi
 
 # Install base packages
-log_progress "Installing base system packages..."
-if ! install_package_group "$ROOTFS_DIR" "base"; then
-    log_error "Failed to install base packages"
+BASE_PACKAGES="alpine-base openrc util-linux shadow sudo"
+if ! apk add --no-cache $BASE_PACKAGES; then
+    echo "ERROR: Failed to install base packages" >&2
     exit 1
 fi
+
+echo "✓ Base packages installed successfully"
+
+# Clean up package cache
+echo "Cleaning package cache..."
+apk cache clean
+rm -rf /var/cache/apk/*
+
+echo "✓ Package cache cleaned"
+EOF
+
+chmod +x "$ROOTFS_DIR/etc/oobe.d/00-base-packages.sh"
 
 # Configure system files
 log_progress "Configuring system files..."
 
 # Ensure proper /etc/passwd entries
 cat > "$ROOTFS_DIR/etc/passwd" << 'EOF'
-root:x:0:0:root:/root:/bin/bash
+root:x:0:0:root:/root:/bin/ash
 bin:x:1:1:bin:/bin:/sbin/nologin
 daemon:x:2:2:daemon:/sbin:/sbin/nologin
 adm:x:3:4:adm:/var/adm:/sbin/nologin
@@ -122,7 +142,7 @@ EOF
 # Create default user (UID 1000 as per Microsoft recommendations)
 log_progress "Creating default WSL user..."
 cat >> "$ROOTFS_DIR/etc/passwd" << 'EOF'
-wsluser:x:1000:1000:WSL User:/home/wsluser:/bin/bash
+wsluser:x:1000:1000:WSL User:/home/wsluser:/bin/ash
 EOF
 
 cat >> "$ROOTFS_DIR/etc/group" << 'EOF'
@@ -147,13 +167,9 @@ chmod 440 "$ROOTFS_DIR/etc/sudoers.d/wsluser"
 
 # Create basic shell configuration
 log_progress "Creating shell configuration..."
-cat > "$ROOTFS_DIR/home/wsluser/.bashrc" << 'EOF'
-# Alpine WSL .bashrc
-
-# Source global definitions
-if [ -f /etc/bashrc ]; then
-    . /etc/bashrc
-fi
+# Alpine uses .profile for ash shell configuration
+cat > "$ROOTFS_DIR/home/wsluser/.ashrc" << 'EOF'
+# Alpine WSL .ashrc
 
 # User specific aliases and functions
 alias ls='ls --color=auto'
@@ -162,12 +178,7 @@ alias la='ls -A'
 alias l='ls -CF'
 
 # Set a nice prompt
-PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
-
-# Enable color support
-if [ -x /usr/bin/dircolors ]; then
-    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
-fi
+PS1='\033[01;32m\u@\h\033[00m:\033[01;34m\w\033[00m\$ '
 
 # Set default editor
 export EDITOR=vi
@@ -178,18 +189,15 @@ export PATH="$HOME/.local/bin:$PATH"
 EOF
 
 # Copy to root user as well
-cp "$ROOTFS_DIR/home/wsluser/.bashrc" "$ROOTFS_DIR/root/.bashrc"
+cp "$ROOTFS_DIR/home/wsluser/.ashrc" "$ROOTFS_DIR/root/.ashrc"
 
 # Create .profile
 cat > "$ROOTFS_DIR/home/wsluser/.profile" << 'EOF'
 # Alpine WSL .profile
 
-# if running bash
-if [ -n "$BASH_VERSION" ]; then
-    # include .bashrc if it exists
-    if [ -f "$HOME/.bashrc" ]; then
-        . "$HOME/.bashrc"
-    fi
+# Source .ashrc if it exists
+if [ -f "$HOME/.ashrc" ]; then
+    . "$HOME/.ashrc"
 fi
 
 # set PATH so it includes user's private bin if it exists
@@ -208,7 +216,7 @@ cp "$ROOTFS_DIR/home/wsluser/.profile" "$ROOTFS_DIR/root/.profile"
 
 # Fix permissions
 chmod 755 "$ROOTFS_DIR/home/wsluser"
-chmod 644 "$ROOTFS_DIR/home/wsluser/.bashrc"
+chmod 644 "$ROOTFS_DIR/home/wsluser/.ashrc"
 chmod 644 "$ROOTFS_DIR/home/wsluser/.profile"
 
 # Configure services
@@ -236,6 +244,6 @@ touch "$ROOTFS_DIR/etc/machine-id"
 
 # Clean up
 log_progress "Cleaning up..."
-clean_package_cache "$ROOTFS_DIR"
+# Package cache cleaning will happen during OOBE after packages are installed
 
 log_success "Base module installed successfully"

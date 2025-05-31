@@ -67,3 +67,15 @@ Impact: Achieved 0 skipped tests in default run by removing empty tests and sepa
 ### 2025-01-31: Test Only What Matters - Alpine Always Uses OpenRC
 Insight: Testing systemd configuration when Alpine exclusively uses OpenRC is pointless - remove unused code paths from tests
 Impact: Removed systemd=true test but kept OpenRC boot command test as it's essential for services like Docker to start properly
+
+### 2025-05-31: Alpine Uses Ash Shell, Not Bash
+Insight: Alpine Linux uses BusyBox ash as its default shell - assuming /bin/bash breaks WSL startup
+Impact: Updated all shell references from /bin/bash to /bin/ash, use .ashrc instead of .bashrc for shell configuration
+
+### 2025-05-31: Package Installation Must Happen Inside WSL
+Insight: Running APK commands via chroot during build fails due to permission issues - use OOBE scripts instead
+Impact: Moved all package installations to /etc/oobe.d/ scripts that run on first boot with proper permissions
+
+### 2025-05-31: Log Output Must Go to Stderr for Command Substitution
+Insight: When capturing function output with $(), all stdout is captured including log messages - breaks command substitution
+Impact: Redirected all logging functions to stderr (>&2) to allow clean output capture while maintaining visible logs

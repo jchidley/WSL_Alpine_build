@@ -27,12 +27,12 @@ export TEST_DISTRIBUTION_PATTERN="${TEST_DISTRIBUTION_PREFIX}[0-9]+"
 
 # Logging functions with consistent output
 log_info() {
-    echo -e "${BLUE}ℹ${NC}  $*"
+    echo -e "${BLUE}ℹ${NC}  $*" >&2
     log "INFO" "$*"
 }
 
 log_success() {
-    echo -e "${GREEN}✓${NC} $*"
+    echo -e "${GREEN}✓${NC} $*" >&2
     log "SUCCESS" "$*"
 }
 
@@ -42,12 +42,12 @@ log_error() {
 }
 
 log_warning() {
-    echo -e "${YELLOW}⚠${NC}  $*"
+    echo -e "${YELLOW}⚠${NC}  $*" >&2
     log "WARNING" "$*"
 }
 
 log_progress() {
-    echo -e "${BLUE}→${NC} $*"
+    echo -e "${BLUE}→${NC} $*" >&2
     log "PROGRESS" "$*"
 }
 
@@ -264,12 +264,19 @@ distribution_exists() {
         return 2
     fi
     
+    # Ensure WSL_EXE is set
+    if [[ -z "${WSL_EXE:-}" ]]; then
+        if ! find_wsl_exe; then
+            return 2
+        fi
+    fi
+    
     # Use WSL list to check, handling Unicode output
     local wsl_output
     wsl_output=$($WSL_EXE --list --all 2>/dev/null)
     
     # Check if we're using a mock (output is already UTF-8)
-    if [[ "$WSL_EXE" == *"/mocks/"* ]] || [[ -n "$BATS_TEST_DIRNAME" ]]; then
+    if [[ "$WSL_EXE" == *"/mocks/"* ]] || [[ -n "${BATS_TEST_DIRNAME:-}" ]]; then
         # Mock output is already UTF-8
         if echo "$wsl_output" | grep -q "^${distro_name}$\|^${distro_name}[[:space:]]"; then
             return 0
@@ -290,7 +297,7 @@ get_wsl_distributions() {
     wsl_output=$($WSL_EXE --list --all 2>/dev/null)
     
     # Check if we're using a mock (output is already UTF-8)
-    if [[ "$WSL_EXE" == *"/mocks/"* ]] || [[ -n "$BATS_TEST_DIRNAME" ]]; then
+    if [[ "$WSL_EXE" == *"/mocks/"* ]] || [[ -n "${BATS_TEST_DIRNAME:-}" ]]; then
         # Mock output is already UTF-8
         echo "$wsl_output" | tr -d '\0\r' | grep -v "^Windows" | grep -v "^$" | sed 's/[[:space:]]*$//'
     else

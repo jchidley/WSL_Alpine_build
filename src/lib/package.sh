@@ -19,16 +19,25 @@ run_apk_in_rootfs() {
         return 1
     fi
     
-    # Check if we need to use chroot or can run directly
-    if command_exists chroot && [[ -x "$rootfs_dir/sbin/apk" ]]; then
-        log_debug "Running APK via chroot: apk ${apk_args[*]}"
+    # Check if we're in fakeroot environment
+    if [[ -n "${FAKEROOTKEY:-}" ]]; then
+        # We're already in fakeroot, can use chroot directly
+        log_debug "Running APK via chroot (in fakeroot): apk ${apk_args[*]}"
         if dry_run_exec chroot "$rootfs_dir" /sbin/apk "${apk_args[@]}"; then
             return 0
         else
             return 1
         fi
+    elif command_exists fakeroot && [[ -x "$rootfs_dir/sbin/apk" ]]; then
+        # Need to run under fakeroot
+        log_debug "Running APK via fakeroot chroot: apk ${apk_args[*]}"
+        if dry_run_exec fakeroot -- chroot "$rootfs_dir" /sbin/apk "${apk_args[@]}"; then
+            return 0
+        else
+            return 1
+        fi
     else
-        log_error "Cannot run APK - chroot not available or APK not found in rootfs"
+        log_error "Cannot run APK - fakeroot/chroot not available or APK not found in rootfs"
         return 1
     fi
 }
