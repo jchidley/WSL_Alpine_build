@@ -180,16 +180,15 @@ EOF
 }
 
 @test "common: setup_error_handling sets error trap" {
-    skip "Error trap testing is complex in BATS environment"
     load_lib common
     
-    # Our logic: setup trap and cleanup
+    # Test that error trap is set and reports errors
     run_command bash -c "
         source '$LIB_DIR/common.sh'
-        cleanup() { echo 'Cleanup called'; }
         setup_error_handling
-        exit 1
+        false  # This should trigger the error handler
     "
     assert_failure
-    assert_output_includes "Cleanup called"
+    assert_output_includes "Command failed"
+    assert_output_includes "Failed command: false"
 }

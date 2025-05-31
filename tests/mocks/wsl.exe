@@ -81,10 +81,10 @@ case "$1" in
         ;;
         
     --import)
-        local name="$2"
-        local install_location="$3"
-        local archive="$4"
-        local version="${5:-2}"
+        name="$2"
+        install_location="$3"
+        archive="$4"
+        version="${5:-2}"
         
         # Validate inputs
         if [[ -z "$name" ]] || [[ -z "$install_location" ]] || [[ -z "$archive" ]]; then
@@ -112,8 +112,8 @@ case "$1" in
         ;;
         
     --export)
-        local name="$2"
-        local archive="$3"
+        name="$2"
+        archive="$3"
         
         if ! distro_exists "$name"; then
             echo "There is no distribution with the supplied name." >&2
@@ -128,7 +128,7 @@ case "$1" in
         ;;
         
     --unregister)
-        local name="$2"
+        name="$2"
         
         if ! distro_exists "$name"; then
             echo "There is no distribution with the supplied name." >&2
@@ -142,7 +142,7 @@ case "$1" in
         ;;
         
     --terminate)
-        local name="$2"
+        name="$2"
         
         if ! distro_exists "$name"; then
             echo "There is no distribution with the supplied name." >&2
@@ -155,8 +155,8 @@ case "$1" in
         ;;
         
     --set-version)
-        local name="$2"
-        local version="$3"
+        name="$2"
+        version="$3"
         
         if ! distro_exists "$name"; then
             echo "There is no distribution with the supplied name." >&2
@@ -175,7 +175,7 @@ case "$1" in
         
     -d|--distribution)
         shift
-        local distro="$1"
+        distro="$1"
         shift
         
         if ! distro_exists "$distro"; then

@@ -55,19 +55,7 @@ load ../test_helper
     assert_output_contains "Missing essential directories"
 }
 
-# Skip environment-dependent tests in mock environment
-@test "minirootfs: download operations" {
-    skip "Download tests require network access"
-}
-
-@test "minirootfs: extract operations" {
-    skip "Extract tests require real tar files"
-}
-
-@test "minirootfs: checksum operations" {
-    skip "Checksum tests require real files"
-}
-
-@test "minirootfs: apk configuration" {
-    skip "APK configuration tests require real rootfs"
-}
+# Note: We don't test actual download/extract operations as they require
+# real network access and files. These are covered by integration testing
+# in a real environment. The unit tests focus on URL generation, validation,
+# and error handling which is what we actually control.

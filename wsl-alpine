@@ -396,6 +396,10 @@ cmd_test() {
                 test_type="integration"
                 shift
                 ;;
+            --real)
+                test_type="real"
+                shift
+                ;;
             --cleanup)
                 cleanup_only=true
                 shift
@@ -409,13 +413,15 @@ Usage: $(basename "$0") test [options]
 Options:
     --unit          Run unit tests only
     --integration   Run integration tests only
+    --real          Run tests requiring real WSL/network (RUN_INTEGRATION_TESTS=1)
     --cleanup       Clean up test distributions
     --help, -h      Show this help message
 
 Examples:
-    $(basename "$0") test
-    $(basename "$0") test --unit
-    $(basename "$0") test --cleanup
+    $(basename "$0") test                # Run all standard tests
+    $(basename "$0") test --unit         # Run unit tests only
+    $(basename "$0") test --real         # Run tests with real resources
+    $(basename "$0") test --cleanup      # Clean up test artifacts
 EOF
                 return 0
                 ;;
@@ -461,10 +467,23 @@ EOF
             bats "${SCRIPT_DIR}"/tests/unit/*.bats
             ;;
         integration)
-            bats "${SCRIPT_DIR}"/tests/integration/*.bats
+            # Run basic integration tests
+            bats "${SCRIPT_DIR}"/tests/integration/test_build_workflow.bats \
+                 "${SCRIPT_DIR}"/tests/integration/test_modular_build.bats
+            # Note: test_real_environment.bats requires RUN_INTEGRATION_TESTS=1
             ;;
         all)
-            bats "${SCRIPT_DIR}"/tests/**/*.bats
+            # Run all tests except those requiring special environment
+            bats "${SCRIPT_DIR}"/tests/unit/*.bats \
+                 "${SCRIPT_DIR}"/tests/integration/test_build_workflow.bats \
+                 "${SCRIPT_DIR}"/tests/integration/test_modular_build.bats
+            # Note: test_real_environment.bats requires RUN_INTEGRATION_TESTS=1
+            ;;
+        real)
+            # Run tests that require real environment
+            log_info "Running integration tests with real resources..."
+            log_warning "These tests require network access and may modify your system"
+            RUN_INTEGRATION_TESTS=1 bats "${SCRIPT_DIR}"/tests/integration/test_real_environment.bats
             ;;
     esac
 }

@@ -131,10 +131,6 @@ load ../test_helper
     # These tests would only run on real WSL systems
 }
 
-@test "wsl: operations requiring real distributions" {
-    skip "Requires real WSL distributions"
-}
-# Additional skip for mock limitations
-@test "wsl: version operations in mock environment" {
-    skip "Version operations limited in mock environment"
-}
+# Note: We don't test operations that require real WSL distributions as those
+# depend on the Windows WSL subsystem. The unit tests focus on configuration
+# generation, validation, and error handling which is what we actually control.

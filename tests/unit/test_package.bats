@@ -36,15 +36,7 @@ load ../test_helper
     done
 }
 
-# Skip environment-dependent tests
-@test "package: operations requiring real APK" {
-    skip "Requires real APK package manager"
-}
-
-@test "package: database operations" {
-    skip "Database operations require real APK database"
-}
-
-@test "package: cache operations" {
-    skip "Cache operations require real filesystem"
-}
+# Note: We don't test actual APK operations as they require a real Alpine
+# rootfs with APK installed. The unit tests focus on package group validation
+# and error handling which is what we actually control. Real APK operations
+# are tested during integration testing.
