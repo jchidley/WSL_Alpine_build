@@ -190,7 +190,7 @@ wsl-alpine                    # Main entry point
 ├── src/lib/                  # Reusable libraries
 │   ├── common.sh            # Common functions
 │   ├── minirootfs.sh        # Minirootfs operations
-│   ├── wsl.sh               # WSL management
+│   ├── wsl-operations.sh    # WSL management
 │   └── package.sh           # Package management
 ├── src/modules/              # Feature modules
 │   ├── base/                # Core system

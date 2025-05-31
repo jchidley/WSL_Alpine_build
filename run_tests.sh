@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ABOUTME: Simple test runner for Alpine WSL build
 # ABOUTME: Runs tests without requiring external test frameworks
 
@@ -23,12 +23,12 @@ run_test() {
     echo -n "  $test_name ... "
     ((TESTS_RUN++))
     
-    if output=$($test_function 2>&1); then
+    # Run test and capture status
+    if $test_function >/dev/null 2>&1; then
         echo -e "${GREEN}PASS${NC}"
         ((TESTS_PASSED++))
     else
         echo -e "${RED}FAIL${NC}"
-        echo "    Output: $output"
         ((TESTS_FAILED++))
     fi
 }

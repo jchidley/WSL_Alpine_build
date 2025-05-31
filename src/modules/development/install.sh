@@ -54,7 +54,7 @@ fi
 
 # Install tree-sitter grammars for Helix
 log_progress "Installing Helix syntax highlighting..."
-local grammars=(
+grammars=(
     "tree-sitter-bash"
     "tree-sitter-c"
     "tree-sitter-cpp"

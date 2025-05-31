@@ -22,7 +22,7 @@ src/
 ├── lib/                     # Reusable libraries
 │   ├── common.sh           # Logging, error handling, utilities
 │   ├── minirootfs.sh       # Alpine minirootfs operations
-│   ├── wsl.sh              # WSL-specific operations
+│   ├── wsl-operations.sh   # WSL-specific operations
 │   └── package.sh          # APK package management
 └── modules/                 # Feature modules
     ├── base/               # Core Alpine system

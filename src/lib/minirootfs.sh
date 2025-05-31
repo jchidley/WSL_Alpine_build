@@ -6,10 +6,7 @@
 [[ -n "${__MINIROOTFS_SH_LOADED:-}" ]] && return 0
 __MINIROOTFS_SH_LOADED=1
 
-# Source common functions
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=src/lib/common.sh
-source "${SCRIPT_DIR}/common.sh"
+# Common functions are sourced by main script
 
 # Default configuration
 export ALPINE_VERSION="${ALPINE_VERSION:-3.18.6}"

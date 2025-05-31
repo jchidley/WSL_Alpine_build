@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Test helper functions for BATS tests
 
+# Load test environment configuration
+source "$(dirname "${BASH_SOURCE[0]}")/test_env.bash"
+
 # Load bats helpers if available
 if [[ -d "/usr/lib/bats/bats-support" ]]; then
     load '/usr/lib/bats/bats-support/load'
@@ -33,20 +36,23 @@ setup() {
     TEST_TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/alpine-wsl-test.XXXXXX")
     export TEST_TEMP_DIR
     
+    # Setup clean test environment
+    setup_test_env
+    
     # Set test environment variables
     export DEBUG="${BATS_DEBUG:-0}"
     export VERBOSE="${BATS_VERBOSE:-0}"
     export DRY_RUN=0
-    export LOG_FILE="${TEST_TEMP_DIR}/test.log"
+    export LOG_FILE=""  # Disable file logging in tests
     
     # Mock WSL executable
     export WSL_EXE="${MOCKS_DIR}/wsl.exe"
+    export MOCK_WSL_DATA="${TEST_TEMP_DIR}/mock-wsl-data"
     
-    # Create mock wsl.exe if needed
-    if [[ ! -f "$WSL_EXE" ]]; then
-        mkdir -p "$MOCKS_DIR"
-        create_mock_wsl
-    fi
+    # Create enhanced mock wsl.exe
+    mkdir -p "$MOCKS_DIR"
+    cp "${TEST_DIR}/mocks/wsl-mock.sh" "$WSL_EXE"
+    chmod +x "$WSL_EXE"
 }
 
 # Teardown function - called after each test
@@ -263,8 +269,24 @@ assert_failure() {
     fi
 }
 
-# Assert output contains
+# Assert output contains (with normalization)
 assert_output_contains() {
+    local expected="$1"
+    local normalized_output
+    
+    # Normalize the output for comparison
+    normalized_output=$(echo "${output:-}" | normalize_output)
+    
+    if [[ ! "$normalized_output" =~ $expected ]]; then
+        echo "Output does not contain: $expected" >&2
+        echo "Actual output (normalized): $normalized_output" >&2
+        echo "Raw output: ${output:-}" >&2
+        return 1
+    fi
+}
+
+# Assert output contains (strict - no normalization)
+assert_output_contains_strict() {
     local expected="$1"
     
     if [[ ! "${output:-}" =~ $expected ]]; then
@@ -312,6 +334,43 @@ skip_if_missing_command() {
     if ! command -v "$cmd" &>/dev/null; then
         skip "Command not available: $cmd"
     fi
+}
+
+# Assert command produces expected output (ignoring extra lines)
+assert_output_includes() {
+    local expected="$1"
+    local found=0
+    
+    # Check each line of output
+    while IFS= read -r line; do
+        if [[ "$line" == *"$expected"* ]]; then
+            found=1
+            break
+        fi
+    done <<< "${output:-}"
+    
+    if [[ $found -eq 0 ]]; then
+        echo "Output does not include: $expected" >&2
+        echo "Actual output: ${output:-}" >&2
+        return 1
+    fi
+}
+
+# Run command with clean environment
+run_clean() {
+    # Run in subshell with clean environment
+    run bash -c "
+        export QUIET_MODE=1
+        export NO_COLOR=1
+        unset LOG_FILE
+        $*"
+}
+
+# Run command and normalize output
+run_normalized() {
+    run "$@"
+    # Normalize the output in place
+    output=$(echo "$output" | normalize_output)
 }
 
 # Create mock chroot for testing package operations

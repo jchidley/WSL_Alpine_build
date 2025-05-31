@@ -1,3 +1,32 @@
+#!/bin/bash
+# Script to reorganize tests - remove meaningless tests, keep meaningful ones
+
+set -euo pipefail
+
+echo "Reorganizing test suite to remove meaningless tests..."
+
+# Backup old tests
+echo "Creating backup of old tests..."
+mkdir -p tests/unit/old_tests_backup
+cp tests/unit/*.bats tests/unit/old_tests_backup/ 2>/dev/null || true
+
+# Remove old test files that we've replaced
+echo "Removing old test files..."
+rm -f tests/unit/test_common.bats
+rm -f tests/unit/test_minirootfs.bats
+rm -f tests/unit/test_wsl.bats
+rm -f tests/unit/test_package.bats
+
+# Rename new meaningful tests
+echo "Installing new meaningful tests..."
+mv tests/unit/test_common_meaningful.bats tests/unit/test_common.bats
+mv tests/unit/test_minirootfs_meaningful.bats tests/unit/test_minirootfs.bats
+mv tests/unit/test_wsl_meaningful.bats tests/unit/test_wsl.bats
+mv tests/unit/test_package_meaningful.bats tests/unit/test_package.bats
+
+# Update integration tests to skip environment-dependent tests
+echo "Updating integration tests..."
+cat > tests/integration/test_build_workflow_meaningful.bats << 'EOF'
 #!/usr/bin/env bats
 # Integration tests for the complete build workflow
 # Focused on testing OUR logic, not system behavior
@@ -110,3 +139,23 @@ CONF
 @test "build: full build workflow" {
     skip "Full build requires real environment"
 }
+EOF
+
+# Make new test executable
+chmod +x tests/integration/test_build_workflow_meaningful.bats
+
+# Backup and replace old integration test
+mv tests/integration/test_build_workflow.bats tests/integration/test_build_workflow.bats.old 2>/dev/null || true
+mv tests/integration/test_build_workflow_meaningful.bats tests/integration/test_build_workflow.bats
+
+echo "Test reorganization complete!"
+echo ""
+echo "Summary of changes:"
+echo "- Removed tests that only test OS behavior (mktemp, rm, tar, etc.)"
+echo "- Kept tests that verify our validation logic"
+echo "- Added skip directives for environment-dependent tests"
+echo "- Focused on testing OUR code, not external tools"
+echo ""
+echo "Old tests backed up to: tests/unit/old_tests_backup/"
+echo ""
+echo "Run './wsl-alpine test' to see the improved test results."

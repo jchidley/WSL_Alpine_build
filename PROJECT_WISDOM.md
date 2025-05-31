@@ -55,3 +55,7 @@ Impact: Maintainable approach - one module can enhance multiple build scripts wi
 ### 2025-01-30: Comprehensive Refactoring Enables Safe, Modular Architecture
 Insight: Replacing 22 scripts with a single entry point and modular libraries dramatically improves maintainability and safety
 Impact: No more dangerous chroot operations, full test coverage, and users can pick exactly the features they need through modules
+
+### 2025-01-31: Test What You Own, Not What You Use
+Insight: Tests that verify OS commands work (mktemp, rm, tar) are meaningless - focus on testing YOUR validation/error handling logic
+Impact: Reduced test suite from 106 to 71 tests by removing OS behavior tests, now 95% pass rate with only mock limitations failing

@@ -1,0 +1,225 @@
+#!/bin/bash
+# Enhanced mock wsl.exe for testing
+# This mock simulates WSL behavior more accurately
+
+# Mock data store (simulates WSL registry)
+MOCK_WSL_DATA="${MOCK_WSL_DATA:-$TEST_TEMP_DIR/mock-wsl-data}"
+mkdir -p "$MOCK_WSL_DATA"
+
+# Initialize with default distributions if not exists
+if [[ ! -f "$MOCK_WSL_DATA/distributions.txt" ]]; then
+    cat > "$MOCK_WSL_DATA/distributions.txt" << EOF
+Debian:Running:2:default
+alp2:Stopped:2:
+EOF
+fi
+
+# Helper functions
+list_distros() {
+    if [[ ! -f "$MOCK_WSL_DATA/distributions.txt" ]]; then
+        return
+    fi
+    cat "$MOCK_WSL_DATA/distributions.txt"
+}
+
+distro_exists() {
+    local name="$1"
+    list_distros | cut -d: -f1 | grep -q "^${name}$"
+}
+
+add_distro() {
+    local name="$1"
+    local state="${2:-Stopped}"
+    local version="${3:-2}"
+    local default="${4:-}"
+    
+    if ! distro_exists "$name"; then
+        echo "${name}:${state}:${version}:${default}" >> "$MOCK_WSL_DATA/distributions.txt"
+    fi
+}
+
+remove_distro() {
+    local name="$1"
+    if [[ -f "$MOCK_WSL_DATA/distributions.txt" ]]; then
+        grep -v "^${name}:" "$MOCK_WSL_DATA/distributions.txt" > "$MOCK_WSL_DATA/distributions.tmp"
+        mv "$MOCK_WSL_DATA/distributions.tmp" "$MOCK_WSL_DATA/distributions.txt"
+    fi
+}
+
+# Main command handling
+case "$1" in
+    --list)
+        shift
+        if [[ "$1" == "--all" ]]; then
+            if [[ -n "$MOCK_WSL_UNICODE" ]] && [[ "$MOCK_WSL_UNICODE" != "0" ]]; then
+                # Simulate UTF-16LE output (for testing unicode handling)
+                echo -e "Windows Subsystem for Linux Distributions:\n$(list_distros | cut -d: -f1)" | iconv -f UTF-8 -t UTF-16LE 2>/dev/null || echo "Windows Subsystem for Linux Distributions:"
+            else
+                # Plain text output (for test environment)
+                echo "Windows Subsystem for Linux Distributions:"
+                list_distros | while IFS=: read -r name state version default; do
+                    if [[ "$default" == "default" ]]; then
+                        echo "$name (Default)"
+                    else
+                        echo "$name"
+                    fi
+                done
+            fi
+        elif [[ "$1" == "--quiet" ]]; then
+            list_distros | cut -d: -f1
+        elif [[ "$1" == "--verbose" ]]; then
+            echo "  NAME            STATE           VERSION"
+            list_distros | while IFS=: read -r name state version default; do
+                printf "%-1s %-15s %-15s %s\n" \
+                    "$([ "$default" = "default" ] && echo "*" || echo " ")" \
+                    "$name" "$state" "$version"
+            done
+        else
+            # Default list
+            list_distros | cut -d: -f1
+        fi
+        ;;
+        
+    --import)
+        local name="$2"
+        local install_location="$3"
+        local archive="$4"
+        local version="${5:-2}"
+        
+        # Validate inputs
+        if [[ -z "$name" ]] || [[ -z "$install_location" ]] || [[ -z "$archive" ]]; then
+            echo "Invalid arguments for import" >&2
+            exit 1
+        fi
+        
+        # Check if distribution already exists
+        if distro_exists "$name"; then
+            echo "A distribution with the supplied name already exists." >&2
+            exit 1
+        fi
+        
+        # Check if archive exists (basic validation)
+        if [[ ! -f "$archive" ]] && [[ ! "$archive" =~ ^[A-Z]:\\ ]]; then
+            echo "The imported file is not a valid Linux distribution." >&2
+            echo "Error code: Wsl/Service/RegisterDistro/WSL_E_NOT_A_LINUX_DISTRO" >&2
+            exit 1
+        fi
+        
+        # Simulate import
+        echo "Importing distribution: $name"
+        add_distro "$name" "Stopped" "$version"
+        exit 0
+        ;;
+        
+    --export)
+        local name="$2"
+        local archive="$3"
+        
+        if ! distro_exists "$name"; then
+            echo "There is no distribution with the supplied name." >&2
+            echo "Error code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND" >&2
+            exit 1
+        fi
+        
+        echo "Exporting distribution: $name"
+        # Simulate creating export file
+        touch "$archive" 2>/dev/null || true
+        exit 0
+        ;;
+        
+    --unregister)
+        local name="$2"
+        
+        if ! distro_exists "$name"; then
+            echo "There is no distribution with the supplied name." >&2
+            echo "Error code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND" >&2
+            exit 1
+        fi
+        
+        echo "Unregistering distribution: $name"
+        remove_distro "$name"
+        exit 0
+        ;;
+        
+    --terminate)
+        local name="$2"
+        
+        if ! distro_exists "$name"; then
+            echo "There is no distribution with the supplied name." >&2
+            echo "Error code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND" >&2
+            exit 1
+        fi
+        
+        echo "Terminating distribution: $name"
+        exit 0
+        ;;
+        
+    --set-version)
+        local name="$2"
+        local version="$3"
+        
+        if ! distro_exists "$name"; then
+            echo "There is no distribution with the supplied name." >&2
+            echo "Error code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND" >&2
+            exit 1
+        fi
+        
+        if [[ "$version" != "1" ]] && [[ "$version" != "2" ]]; then
+            echo "Invalid version: $version" >&2
+            exit 1
+        fi
+        
+        echo "Setting WSL version for $name to $version"
+        exit 0
+        ;;
+        
+    -d|--distribution)
+        shift
+        local distro="$1"
+        shift
+        
+        if ! distro_exists "$distro"; then
+            echo "There is no distribution with the supplied name." >&2
+            echo "Error code: Wsl/Service/WSL_E_DISTRO_NOT_FOUND" >&2
+            exit 1
+        fi
+        
+        echo "Running in distribution: $distro"
+        # Execute the command if provided
+        if [[ $# -gt 0 ]]; then
+            # In test mode, just execute the command
+            "$@"
+        fi
+        ;;
+        
+    --version)
+        echo "WSL version: 2.0.0.0"
+        echo "Kernel version: 5.15.0.0"
+        echo "WSLg version: 1.0.0"
+        echo "Windows version: 10.0.22621.0"
+        ;;
+        
+    --help)
+        echo "Windows Subsystem for Linux"
+        echo "Usage: wsl.exe [options] [command]"
+        echo ""
+        echo "Options:"
+        echo "  --list, -l [--all] [--quiet] [--verbose]"
+        echo "  --import <name> <location> <file> [--version <1|2>]"
+        echo "  --export <name> <file>"
+        echo "  --unregister <name>"
+        echo "  --terminate <name>"
+        echo "  --set-version <name> <version>"
+        echo "  --distribution, -d <name>"
+        echo "  --version"
+        echo "  --help"
+        echo ""
+        echo "Additional options:"
+        echo "  --vhd is supported"
+        ;;
+        
+    *)
+        echo "Mock wsl.exe: Unknown command $1" >&2
+        exit 1
+        ;;
+esac

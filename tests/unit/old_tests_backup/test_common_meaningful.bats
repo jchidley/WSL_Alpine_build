@@ -176,11 +176,10 @@ EOF
     
     run_command check_dependencies "bash" "nonexistent-command" "grep"
     assert_failure
-    assert_output_includes "Missing required dependencies"
+    assert_output_contains "not found"
 }
 
 @test "common: setup_error_handling sets error trap" {
-    skip "Error trap testing is complex in BATS environment"
     load_lib common
     
     # Our logic: setup trap and cleanup
@@ -191,5 +190,5 @@ EOF
         exit 1
     "
     assert_failure
-    assert_output_includes "Cleanup called"
+    assert_output_contains "Cleanup called"
 }

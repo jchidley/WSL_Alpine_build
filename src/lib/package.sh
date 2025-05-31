@@ -6,10 +6,7 @@
 [[ -n "${__PACKAGE_SH_LOADED:-}" ]] && return 0
 __PACKAGE_SH_LOADED=1
 
-# Source common functions
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=src/lib/common.sh
-source "${SCRIPT_DIR}/common.sh"
+# Common functions are sourced by main script
 
 # Run APK command in rootfs
 run_apk_in_rootfs() {

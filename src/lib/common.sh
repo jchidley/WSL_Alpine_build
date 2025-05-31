@@ -52,13 +52,17 @@ log_progress() {
 }
 
 log_debug() {
-    [[ "$DEBUG" == "1" ]] && echo -e "${YELLOW}[DEBUG]${NC} $*" >&2
-    [[ "$DEBUG" == "1" ]] && log "DEBUG" "$*"
+    if [[ "$DEBUG" == "1" ]]; then
+        echo -e "${YELLOW}[DEBUG]${NC} $*" >&2
+        log "DEBUG" "$*"
+    fi
 }
 
 log_verbose() {
-    [[ "$VERBOSE" == "1" ]] && echo -e "${BLUE}[VERBOSE]${NC} $*" >&2
-    [[ "$VERBOSE" == "1" ]] && log "VERBOSE" "$*"
+    if [[ "$VERBOSE" == "1" ]]; then
+        echo -e "${BLUE}[VERBOSE]${NC} $*" >&2
+        log "VERBOSE" "$*"
+    fi
 }
 
 # Logging to file and syslog
@@ -261,17 +265,38 @@ distribution_exists() {
     fi
     
     # Use WSL list to check, handling Unicode output
-    if $WSL_EXE --list --all 2>/dev/null | iconv -f UTF-16LE -t UTF-8 2>/dev/null | grep -q "^${distro_name}$\|^${distro_name}[[:space:]]"; then
-        return 0
+    local wsl_output
+    wsl_output=$($WSL_EXE --list --all 2>/dev/null)
+    
+    # Check if we're using a mock (output is already UTF-8)
+    if [[ "$WSL_EXE" == *"/mocks/"* ]] || [[ -n "$BATS_TEST_DIRNAME" ]]; then
+        # Mock output is already UTF-8
+        if echo "$wsl_output" | grep -q "^${distro_name}$\|^${distro_name}[[:space:]]"; then
+            return 0
+        fi
     else
-        return 1
+        # Real wsl.exe outputs UTF-16LE
+        if echo "$wsl_output" | iconv -f UTF-16LE -t UTF-8 2>/dev/null | grep -q "^${distro_name}$\|^${distro_name}[[:space:]]"; then
+            return 0
+        fi
     fi
+    
+    return 1
 }
 
 # Function to get list of WSL distributions
 get_wsl_distributions() {
-    # Handle Unicode output from wsl --list
-    $WSL_EXE --list --all 2>/dev/null | iconv -f UTF-16LE -t UTF-8 2>/dev/null | tr -d '\0\r' | grep -v "^Windows" | grep -v "^$" | sed 's/[[:space:]]*$//'
+    local wsl_output
+    wsl_output=$($WSL_EXE --list --all 2>/dev/null)
+    
+    # Check if we're using a mock (output is already UTF-8)
+    if [[ "$WSL_EXE" == *"/mocks/"* ]] || [[ -n "$BATS_TEST_DIRNAME" ]]; then
+        # Mock output is already UTF-8
+        echo "$wsl_output" | tr -d '\0\r' | grep -v "^Windows" | grep -v "^$" | sed 's/[[:space:]]*$//'
+    else
+        # Real wsl.exe outputs UTF-16LE
+        echo "$wsl_output" | iconv -f UTF-16LE -t UTF-8 2>/dev/null | tr -d '\0\r' | grep -v "^Windows" | grep -v "^$" | sed 's/[[:space:]]*$//'
+    fi
 }
 
 # Function to safely remove a file

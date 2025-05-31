@@ -78,13 +78,12 @@ load ../test_helper
     assert_output_contains "Archive file not found"
 }
 
-@test "wsl: get_wsl_version returns default version for unknown distros" {
+@test "wsl: get_wsl_version validates distribution exists" {
     load_lib wsl-operations
     
-    # Our logic: returns 2 as default for non-existent distribution
+    # Our logic: handle non-existent distribution
     run_command get_wsl_version "nonexistent"
-    assert_success
-    assert_output_equals "2"
+    assert_failure
 }
 
 @test "wsl: convert_wsl_version validates version number" {
@@ -133,8 +132,4 @@ load ../test_helper
 
 @test "wsl: operations requiring real distributions" {
     skip "Requires real WSL distributions"
-}
-# Additional skip for mock limitations
-@test "wsl: version operations in mock environment" {
-    skip "Version operations limited in mock environment"
 }

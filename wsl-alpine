@@ -12,8 +12,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/src/lib/common.sh"
 # shellcheck source=src/lib/minirootfs.sh
 source "${SCRIPT_DIR}/src/lib/minirootfs.sh"
-# shellcheck source=src/lib/wsl.sh
-source "${SCRIPT_DIR}/src/lib/wsl.sh"
+# shellcheck source=src/lib/wsl-operations.sh
+source "${SCRIPT_DIR}/src/lib/wsl-operations.sh"
 # shellcheck source=src/lib/package.sh
 source "${SCRIPT_DIR}/src/lib/package.sh"
 

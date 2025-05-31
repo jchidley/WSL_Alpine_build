@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ABOUTME: Prerequisites checking for Alpine WSL build
 # ABOUTME: Validates system requirements and dependencies
 
@@ -6,9 +6,20 @@
 [[ -n "${__PREREQUISITES_SH_LOADED:-}" ]] && return 0
 __PREREQUISITES_SH_LOADED=1
 
-# Source common functions
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/common.sh"
+# Source common functions if not already loaded
+if [[ -z "${__COMMON_SH_LOADED:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    source "$SCRIPT_DIR/common.sh"
+fi
+
+# Function aliases for compatibility
+progress() { log_progress "$@"; }
+debug() { log_debug "$@"; }
+error() { log_error "$@"; }
+verbose() { log_verbose "$@"; }
+warning() { log_warning "$@"; }
+success() { log_info "✓ $*"; }
+info() { log_info "$@"; }
 
 # Required commands
 REQUIRED_COMMANDS=(wget tar gzip sha256sum fakeroot)

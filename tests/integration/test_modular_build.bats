@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# ABOUTME: Integration tests for modular Alpine WSL build script
-# ABOUTME: Tests the refactored script with library dependencies
+# ABOUTME: Integration tests for wsl-alpine build command
+# ABOUTME: Tests the new unified build system
 
 load ../test_helper
 
@@ -12,106 +12,84 @@ setup() {
     
     mkdir -p "$TEST_DIR"
     
-    # Path to the modular script
-    export SCRIPT="$BATS_TEST_DIRNAME/../../wsl-alpine-build-modular.sh"
+    # Path to the main script
+    export SCRIPT="$BATS_TEST_DIRNAME/../../wsl-alpine"
 }
 
 teardown() {
     rm -rf "$TEST_DIR"
 }
 
-@test "modular script exists and is executable" {
+@test "wsl-alpine script exists and is executable" {
     [ -f "$SCRIPT" ]
     [ -x "$SCRIPT" ]
 }
 
-@test "modular script sources required libraries" {
+@test "wsl-alpine script sources required libraries" {
     # Check that the script contains the source commands
     grep -q "source.*common.sh" "$SCRIPT"
-    grep -q "source.*prerequisites.sh" "$SCRIPT"
+    grep -q "source.*minirootfs.sh" "$SCRIPT"
+    grep -q "source.*wsl-operations.sh" "$SCRIPT"
+    grep -q "source.*package.sh" "$SCRIPT"
 }
 
-@test "modular script shows help" {
-    run "$SCRIPT" --help
+@test "wsl-alpine shows help" {
+    run "$SCRIPT" help
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage:" ]]
-    [[ "$output" =~ "Options:" ]]
-    [[ "$output" =~ "--help" ]]
-    [[ "$output" =~ "--verbose" ]]
-    [[ "$output" =~ "--dry-run" ]]
+    [[ "$output" =~ "Alpine WSL Management Tool" ]]
+    [[ "$output" =~ "Commands:" ]]
+    [[ "$output" =~ "build" ]]
+    [[ "$output" =~ "module" ]]
+    [[ "$output" =~ "test" ]]
 }
 
-@test "modular script accepts command line arguments" {
-    run "$SCRIPT" --dry-run --version 3.19.0 --arch aarch64 --name test-alpine
+@test "wsl-alpine build shows help" {
+    run "$SCRIPT" build --help
     [ "$status" -eq 0 ]
-    # Script should complete successfully in dry-run mode
-    [[ "$output" =~ "Build complete!" ]]
+    [[ "$output" =~ "Build Alpine WSL Distribution" ]]
+    [[ "$output" =~ "--modules" ]]
+    [[ "$output" =~ "--version" ]]
+    [[ "$output" =~ "--arch" ]]
 }
 
-@test "modular script validates prerequisites" {
-    run "$SCRIPT" --dry-run
+@test "wsl-alpine module list works" {
+    run "$SCRIPT" module list
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Checking prerequisites" ]]
-    [[ "$output" =~ "All prerequisites found" ]]
+    [[ "$output" =~ "Available modules:" ]]
+    [[ "$output" =~ "base" ]]
+    [[ "$output" =~ "docker" ]]
 }
 
-@test "modular script performs dry run correctly" {
-    run "$SCRIPT" --dry-run --verbose
+@test "wsl-alpine module info works" {
+    run "$SCRIPT" module info base
     [ "$status" -eq 0 ]
-    
-    # Check all major steps are shown
-    [[ "$output" =~ "Checking prerequisites" ]]
-    [[ "$output" =~ "Creating build directory" ]]
-    [[ "$output" =~ "Downloading Alpine minirootfs" ]]
-    [[ "$output" =~ "Extracting rootfs" ]]
-    [[ "$output" =~ "Configuring Alpine for WSL" ]]
-    [[ "$output" =~ "Packaging distribution" ]]
-    [[ "$output" =~ "Build complete!" ]]
-    
-    # Check dry run indicators
-    [[ "$output" =~ "[DRY RUN]" ]]
+    [[ "$output" =~ "Module: base" ]]
+    [[ "$output" =~ "version:" ]]
+    [[ "$output" =~ "description:" ]]
 }
 
-@test "modular script shows verbose output" {
-    run "$SCRIPT" --dry-run --verbose
+@test "wsl-alpine list works" {
+    run "$SCRIPT" list
     [ "$status" -eq 0 ]
-    
-    # Check configuration display
-    [[ "$output" =~ "Configuration:" ]]
-    [[ "$output" =~ "Alpine Version:" ]]
-    [[ "$output" =~ "Architecture:" ]]
-    [[ "$output" =~ "Distribution Name:" ]]
-    
-    # Check verbose messages
-    [[ "$output" =~ "[VERBOSE]" ]]
-    [[ "$output" =~ "System information:" ]]
+    [[ "$output" =~ "WSL Distributions:" ]]
 }
 
-@test "modular script uses error handling from common.sh" {
-    # Test with an invalid option to trigger error handling
-    run "$SCRIPT" --invalid-option
+@test "wsl-alpine handles unknown commands" {
+    # Test with an invalid command
+    run "$SCRIPT" invalid-command
     [ "$status" -ne 0 ]
-    [[ "$output" =~ "Unknown option: --invalid-option" ]]
+    [[ "$output" =~ "Unknown command: invalid-command" ]]
 }
 
-@test "modular script respects environment variables" {
-    export ALPINE_VERSION="3.20.0"
-    export ARCH="armv7"
-    export DISTRO_NAME="test-distro"
-    
-    run "$SCRIPT" --dry-run --verbose
+@test "wsl-alpine version option works" {
+    run "$SCRIPT" --version
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Alpine Version: 3.20.0" ]]
-    [[ "$output" =~ "Architecture: armv7" ]]
-    [[ "$output" =~ "Distribution Name: test-distro" ]]
+    [[ "$output" =~ "Alpine WSL Management Tool v" ]]
 }
 
-@test "modular script cleanup function works" {
-    # The cleanup should be called even in dry-run mode
-    # Don't override BUILD_DIR for this test
-    unset BUILD_DIR
-    run "$SCRIPT" --dry-run --verbose
+@test "wsl-alpine test command works" {
+    # Test that the test command exists
+    run "$SCRIPT" test --help
     [ "$status" -eq 0 ]
-    # Check for cleanup command in dry-run output
-    echo "$output" | grep -q "rm -rf"
+    [[ "$output" =~ "Run Tests" ]]
 }

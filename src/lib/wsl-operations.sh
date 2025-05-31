@@ -6,10 +6,11 @@
 [[ -n "${__WSL_SH_LOADED:-}" ]] && return 0
 __WSL_SH_LOADED=1
 
-# Source common functions
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=src/lib/common.sh
-source "${SCRIPT_DIR}/common.sh"
+# Source common functions if not already loaded
+if [[ -z "${__COMMON_SH_LOADED:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    source "$SCRIPT_DIR/common.sh"
+fi
 
 # WSL configuration template
 create_wsl_conf() {
