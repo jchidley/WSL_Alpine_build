@@ -59,16 +59,6 @@ require_integration_tests() {
     assert_success
 }
 
-@test "integration: real APK operations in Alpine container" {
-    require_integration_tests
-    skip_if_missing_command docker
-    
-    # Use Docker to test real APK operations
-    run_command docker run --rm alpine:3.18 apk update
-    assert_success
-    assert_output_contains "fetch"
-}
-
 @test "integration: real WSL version operations" {
     require_integration_tests
     skip_if_not_wsl

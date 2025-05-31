@@ -26,26 +26,12 @@ load ../test_helper
     assert_file_contains "$rootfs_dir/etc/wsl.conf" "[network]"
     assert_file_contains "$rootfs_dir/etc/wsl.conf" "[interop]"
     assert_file_contains "$rootfs_dir/etc/wsl.conf" "[boot]"
+    # Alpine always uses OpenRC, never systemd
     assert_file_contains "$rootfs_dir/etc/wsl.conf" "systemd = false"
+    # OpenRC boot command is needed to start services like Docker
+    assert_file_contains "$rootfs_dir/etc/wsl.conf" "command = /sbin/openrc default"
     assert_file_contains "$rootfs_dir/etc/wsl.conf" "[user]"
     assert_file_contains "$rootfs_dir/etc/wsl.conf" "default = testuser"
-}
-
-@test "wsl: create_wsl_conf with systemd enabled" {
-    load_lib wsl-operations
-    
-    # Our logic: handle systemd configuration
-    local rootfs_dir="$TEST_TEMP_DIR/rootfs"
-    mkdir -p "$rootfs_dir/etc"
-    
-    run_command create_wsl_conf "$rootfs_dir" "" "true"
-    assert_success
-    
-    # Check systemd is enabled
-    assert_file_contains "$rootfs_dir/etc/wsl.conf" "systemd = true"
-    
-    # Should not have openrc command
-    ! grep -q "command = /sbin/openrc" "$rootfs_dir/etc/wsl.conf"
 }
 
 @test "wsl: create_wsl_distribution_conf creates distribution config" {

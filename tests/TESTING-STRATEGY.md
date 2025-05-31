@@ -8,7 +8,7 @@ The WSL Alpine Build test suite follows the principle of "Test What You Own, Not
 
 ### 1. Unit Tests (`tests/unit/`)
 - **Purpose**: Test individual functions and libraries in isolation
-- **Coverage**: 31 tests covering all core libraries
+- **Coverage**: 30 tests covering all core libraries
 - **Run with**: `./wsl-alpine test --unit`
 - **Examples**:
   - URL generation logic
@@ -27,13 +27,13 @@ The WSL Alpine Build test suite follows the principle of "Test What You Own, Not
 
 ### 3. Real Environment Tests (`tests/integration/test_real_environment.bats`)
 - **Purpose**: Test actual system operations with real resources
-- **Coverage**: 5 tests requiring network/WSL/Docker
+- **Coverage**: 4 tests requiring network/WSL
 - **Run with**: `./wsl-alpine test --real`
 - **Requires**: `RUN_INTEGRATION_TESTS=1` environment variable
 - **Examples**:
   - Real minirootfs downloads
   - Actual WSL operations
-  - Docker-based APK testing
+  - Full build workflow with real components
 
 ## Test Execution
 
@@ -41,13 +41,13 @@ The WSL Alpine Build test suite follows the principle of "Test What You Own, Not
 ```bash
 ./wsl-alpine test
 ```
-Runs all unit and integration tests (59 tests total), excluding real environment tests.
+Runs all unit and integration tests (58 tests total), excluding real environment tests.
 
 ### Specific Test Types
 ```bash
-./wsl-alpine test --unit         # Unit tests only (31 tests)
+./wsl-alpine test --unit         # Unit tests only (30 tests)
 ./wsl-alpine test --integration  # Integration tests only (28 tests)
-./wsl-alpine test --real         # Real environment tests (5 tests)
+./wsl-alpine test --real         # Real environment tests (4 tests)
 ```
 
 ### Direct BATS Execution

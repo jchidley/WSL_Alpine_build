@@ -59,3 +59,11 @@ Impact: No more dangerous chroot operations, full test coverage, and users can p
 ### 2025-01-31: Test What You Own, Not What You Use
 Insight: Tests that verify OS commands work (mktemp, rm, tar) are meaningless - focus on testing YOUR validation/error handling logic
 Impact: Reduced test suite from 106 to 71 tests by removing OS behavior tests, now 95% pass rate with only mock limitations failing
+
+### 2025-01-31: Empty Skipped Tests Are Worse Than No Tests
+Insight: Having 12 placeholder "skip" tests creates confusion and false sense of incomplete coverage - better to remove them entirely.
+Impact: Achieved 0 skipped tests in default run by removing empty tests and separating real environment tests with explicit flag.
+
+### 2025-01-31: Test Only What Matters - Alpine Always Uses OpenRC
+Insight: Testing systemd configuration when Alpine exclusively uses OpenRC is pointless - remove unused code paths from tests
+Impact: Removed systemd=true test but kept OpenRC boot command test as it's essential for services like Docker to start properly
