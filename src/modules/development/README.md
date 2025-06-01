@@ -1,13 +1,11 @@
-# Development Module
+# Development Module (Minimal)
 
-The development module provides a comprehensive set of modern development tools and utilities.
+The development module provides a minimal set of modern development tools focused on essential CLI utilities.
 
 ## What it includes
 
-### Editors
+### Editor
 - **Helix** - Modern modal editor with built-in LSP support
-- **Vim** - Classic vi improved editor
-- **Nano** - Simple and user-friendly editor
 
 ### Modern CLI Tools
 - **fd** - Fast and user-friendly alternative to find
@@ -15,21 +13,7 @@ The development module provides a comprehensive set of modern development tools 
 - **ripgrep (rg)** - Blazingly fast grep alternative
 - **fzf** - Command-line fuzzy finder
 - **zoxide** - Smarter cd command that learns your habits
-- **htop** - Interactive process viewer
-- **ncdu** - NCurses disk usage analyzer
 - **tree** - Directory listing in tree format
-- **jq/yq** - Command-line JSON/YAML processors
-
-### Development Tools
-- **Git** with Git LFS support
-- **tmux** - Terminal multiplexer
-- **curl/wget** - HTTP clients
-- **rsync** - Fast file transfer
-
-### Programming Languages
-- **Python 3** with pip
-- **Go** programming language
-- **Rust** with cargo
 
 ## Configuration
 
@@ -40,16 +24,6 @@ The development module provides a comprehensive set of modern development tools 
 - Tree-sitter grammars for syntax highlighting
 - Mouse support enabled
 
-### Git
-- Default branch: main
-- Editor: helix
-- Useful aliases pre-configured
-
-### tmux
-- Prefix key: Ctrl-a
-- Mouse support enabled
-- Intuitive pane splitting (| and -)
-- Alt+Arrow keys for pane navigation
 
 ## Aliases
 
@@ -58,8 +32,6 @@ The module sets up modern tool aliases:
 - `find` → `fd`
 - `grep` → `rg`
 - `vim`/`vi` → `hx`
-- `top` → `htop`
-- `du` → `ncdu`
 
 ## Custom Functions
 
@@ -67,13 +39,6 @@ The module sets up modern tool aliases:
 Create directory and change into it:
 ```bash
 mkcd my-new-project
-```
-
-### extract
-Extract any archive format:
-```bash
-extract archive.tar.gz
-extract file.zip
 ```
 
 ### proj
@@ -90,11 +55,6 @@ fe  # Find and edit files
 fe test  # Find files matching "test"
 ```
 
-### fbr
-Interactive git branch switcher:
-```bash
-fbr  # Select and checkout git branch
-```
 
 ## Usage Tips
 

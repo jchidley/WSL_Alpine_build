@@ -8,8 +8,6 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # shellcheck source=src/lib/common.sh
 source "${PROJECT_ROOT}/src/lib/common.sh"
-# shellcheck source=src/lib/package.sh
-source "${PROJECT_ROOT}/src/lib/package.sh"
 
 # Check ROOTFS_DIR is set
 if [[ -z "${ROOTFS_DIR:-}" ]]; then
@@ -19,28 +17,51 @@ fi
 
 log_info "Installing docker module..."
 
+# Create package installation script for OOBE
+log_progress "Creating Docker package installation script..."
+mkdir -p "$ROOTFS_DIR/etc/oobe.d"
+
+cat > "$ROOTFS_DIR/etc/oobe.d/30-docker-packages.sh" << 'EOF'
+#!/bin/sh
+# Install Docker packages on first boot
+
+echo "Installing Docker and container tools..."
+
 # Install Docker packages
-log_progress "Installing Docker and related packages..."
-if ! install_packages "$ROOTFS_DIR" \
-    docker \
-    docker-cli \
-    docker-cli-compose \
-    docker-cli-buildx \
-    containerd \
-    runc \
-    ca-certificates \
-    iptables \
-    ip6tables \
-    git; then
-    log_error "Failed to install Docker packages"
+DOCKER_PACKAGES="docker docker-cli docker-cli-compose docker-cli-buildx containerd runc ca-certificates iptables ip6tables git"
+if ! apk add --no-cache $DOCKER_PACKAGES; then
+    echo "ERROR: Failed to install Docker packages" >&2
     exit 1
 fi
 
-# Install lazydocker from testing repository
-log_progress "Installing lazydocker..."
-if ! run_apk_in_rootfs "$ROOTFS_DIR" add --no-cache lazydocker@testing; then
-    log_warning "Failed to install lazydocker from testing repository"
+echo "✓ Docker packages installed successfully"
+
+# Install lazydocker from testing
+echo "Installing lazydocker..."
+if apk add --no-cache lazydocker@testing 2>/dev/null; then
+    echo "✓ Lazydocker installed successfully"
+else
+    echo "⚠ Lazydocker not available in testing repository"
 fi
+
+# Add Docker service to default runlevel
+echo "Configuring Docker to start on boot..."
+if rc-update add docker-wsl default; then
+    echo "✓ Docker configured to start on boot"
+else
+    echo "⚠ Failed to add Docker to default runlevel"
+fi
+
+# Start Docker service
+echo "Starting Docker service..."
+if /etc/init.d/docker-wsl start; then
+    echo "✓ Docker service started successfully"
+else
+    echo "⚠ Failed to start Docker service"
+fi
+EOF
+
+chmod +x "$ROOTFS_DIR/etc/oobe.d/30-docker-packages.sh"
 
 # Configure Docker daemon
 log_progress "Configuring Docker daemon..."

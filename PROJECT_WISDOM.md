@@ -87,3 +87,7 @@ Impact: Added validation tests that check actual build artifacts - shell paths, 
 ### 2025-05-31: Minimal Package Philosophy Lost in Modular Refactoring
 Insight: Original minimal design (7 packages) expanded to 24+ packages during modularization - defeats Alpine's minimalist purpose
 Impact: Must reduce packages back to essentials: helix fd bat zoxide fzf ripgrep tree - everything else is bloat
+
+### 2025-05-31: All Modules Must Use OOBE for Package Installation
+Insight: Only base module was migrated to OOBE approach - other modules still used chroot causing permission failures
+Impact: Migrated development, docker, and claude-code modules to use OOBE scripts for consistent, permission-safe installation

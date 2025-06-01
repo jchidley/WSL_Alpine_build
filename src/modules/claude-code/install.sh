@@ -8,8 +8,6 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # shellcheck source=src/lib/common.sh
 source "${PROJECT_ROOT}/src/lib/common.sh"
-# shellcheck source=src/lib/package.sh
-source "${PROJECT_ROOT}/src/lib/package.sh"
 
 # Check ROOTFS_DIR is set
 if [[ -z "${ROOTFS_DIR:-}" ]]; then
@@ -19,12 +17,27 @@ fi
 
 log_info "Installing claude-code module..."
 
-# Install Node.js and npm
-log_progress "Installing Node.js and npm..."
-if ! install_packages "$ROOTFS_DIR" nodejs npm git curl bash; then
-    log_error "Failed to install Node.js packages"
+# Create package installation script for OOBE
+log_progress "Creating Claude Code package installation script..."
+mkdir -p "$ROOTFS_DIR/etc/oobe.d"
+
+cat > "$ROOTFS_DIR/etc/oobe.d/40-claude-code-packages.sh" << 'EOF'
+#!/bin/sh
+# Install Claude Code packages on first boot
+
+echo "Installing Node.js and npm for Claude Code..."
+
+# Install Node.js packages
+CLAUDE_PACKAGES="nodejs npm git curl bash"
+if ! apk add --no-cache $CLAUDE_PACKAGES; then
+    echo "ERROR: Failed to install Claude Code dependencies" >&2
     exit 1
 fi
+
+echo "✓ Claude Code dependencies installed successfully"
+EOF
+
+chmod +x "$ROOTFS_DIR/etc/oobe.d/40-claude-code-packages.sh"
 
 # Create Claude Code installation script
 log_progress "Creating Claude Code installation script..."
