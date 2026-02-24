@@ -196,11 +196,14 @@ install_package_group() {
                 ncdu
             ;;
         
-        "docker")
+        "podman")
             install_packages "$rootfs_dir" \
-                docker \
-                docker-cli-compose \
-                docker-cli-buildx
+                podman \
+                podman-remote \
+                fuse-overlayfs \
+                slirp4netns \
+                conmon \
+                crun
             ;;
         
         "network")
@@ -215,7 +218,7 @@ install_package_group() {
         
         *)
             log_error "Unknown package group: $group_name"
-            log_info "Available groups: base, development, editors, modern-cli, docker, network"
+            log_info "Available groups: base, development, editors, modern-cli, podman, network"
             return 1
             ;;
     esac

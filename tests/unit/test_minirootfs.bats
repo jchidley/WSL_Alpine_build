@@ -55,6 +55,19 @@ load ../test_helper
     assert_output_contains "Missing essential directories"
 }
 
+@test "minirootfs: verify_extracted_fs fails when one essential dir is missing" {
+    load_lib minirootfs
+
+    local test_rootfs="$TEST_TEMP_DIR/rootfs-partial"
+    mkdir -p "$test_rootfs"/{etc,bin,sbin,usr,var}
+    # intentionally missing: lib
+
+    run_command verify_extracted_fs "$test_rootfs"
+    assert_failure
+    assert_output_contains "Missing essential directories"
+    assert_output_contains "lib"
+}
+
 # Note: We don't test actual download/extract operations as they require
 # real network access and files. These are covered by integration testing
 # in a real environment. The unit tests focus on URL generation, validation,

@@ -29,7 +29,7 @@ load ../test_helper
     create_test_rootfs "$rootfs_dir"
     
     # These should be recognized (even if install is mocked)
-    for group in base network development; do
+    for group in base network development podman; do
         run_command install_package_group "$rootfs_dir" "$group"
         # Should not fail with "Unknown package group"
         ! [[ "$output" =~ "Unknown package group" ]]

@@ -1,0 +1,17 @@
+name: podman
+version: 1.0.0
+description: Podman container tooling for in-distro WSL workflows
+author: Alpine WSL Build System
+dependencies:
+  - base
+packages:
+  - podman
+  - podman-remote
+  - fuse-overlayfs
+  - slirp4netns
+  - conmon
+  - crun
+  - uidmap
+  - shadow-subids
+  - iptables
+  - ip6tables

@@ -35,6 +35,11 @@ Usage: $(basename "$0") <command> [options]
 Commands:
     build       Build a new Alpine WSL distribution
     install     Import a distribution into WSL
+    up          Build/import a disposable workspace target
+    shell       Open a shell in a workspace target
+    exec        Execute a command in a workspace target
+    down        Stop/remove a workspace target
+    gc          Cleanup disposable workspaces
     reset       Remove a WSL distribution
     test        Run tests or test builds
     module      Manage distribution modules
@@ -51,7 +56,9 @@ Options:
 Examples:
     $(basename "$0") build                    # Build with default settings
     $(basename "$0") build --modules all      # Build with all modules
-    $(basename "$0") reset alpine-wsl         # Remove distribution
+    $(basename "$0") up --target dev          # Build/import disposable target
+    $(basename "$0") shell dev                # Open shell in target
+    $(basename "$0") down dev --purge         # Remove target distro
     $(basename "$0") module list              # List available modules
     $(basename "$0") test                     # Run all tests
 
@@ -69,7 +76,7 @@ Usage: $(basename "$0") build [options]
 Options:
     --name NAME             Distribution name (default: $DEFAULT_DISTRO_NAME)
     --modules MODULES       Comma-separated list of modules to install
-                           Available: base, docker, claude-code, development
+                           Available: base, podman, pi-agent, development
                            Use 'all' to install all modules
     --version VERSION      Alpine version (default: $ALPINE_VERSION)
     --arch ARCH           Architecture (default: $ALPINE_ARCH)
@@ -82,7 +89,7 @@ Options:
 
 Examples:
     $(basename "$0") build
-    $(basename "$0") build --name my-alpine --modules base,docker
+    $(basename "$0") build --name my-alpine --modules base,podman,pi-agent
     $(basename "$0") build --modules all --no-import
     $(basename "$0") build --import-only alpine-wsl.tar.gz
 EOF
@@ -195,7 +202,7 @@ cmd_build() {
     # Apply modules
     log_info "Applying modules: $modules"
     if [[ "$modules" == "all" ]]; then
-        modules="base,docker,claude-code,development"
+        modules="base,podman,pi-agent,development"
     fi
     
     # Process each module
@@ -568,7 +575,7 @@ Subcommands:
 
 Examples:
     $(basename "$0") module list
-    $(basename "$0") module info docker
+    $(basename "$0") module info podman
 EOF
             ;;
         
@@ -590,6 +597,157 @@ cmd_list() {
     
     # Use our detailed listing function
     list_distributions_detailed
+}
+
+# Workspace target state
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/wsl-alpine"
+
+resolve_target_file() {
+    local target_ref="$1"
+    if [[ -f "$target_ref" ]]; then
+        echo "$target_ref"
+    elif [[ -f "${SCRIPT_DIR}/targets/${target_ref}.yaml" ]]; then
+        echo "${SCRIPT_DIR}/targets/${target_ref}.yaml"
+    else
+        return 1
+    fi
+}
+
+load_target() {
+    local target_file="$1"
+    TARGET_NAME=$(grep -E '^name:' "$target_file" | head -1 | cut -d: -f2- | xargs)
+    TARGET_ALPINE=$(grep -E '^alpine:' "$target_file" | head -1 | cut -d: -f2- | tr -d '"' | xargs)
+    TARGET_MODULES=$(grep -E '^modules:' "$target_file" | head -1 | cut -d: -f2- | tr -d '[]" ')
+    TARGET_DISPOSABLE=$(grep -E '^disposable:' "$target_file" | head -1 | cut -d: -f2- | xargs)
+
+    TARGET_NAME="${TARGET_NAME:-$(basename "$target_file" .yaml)}"
+    TARGET_ALPINE="${TARGET_ALPINE:-$ALPINE_VERSION}"
+    TARGET_MODULES="${TARGET_MODULES:-base,podman}"
+    TARGET_DISPOSABLE="${TARGET_DISPOSABLE:-true}"
+    TARGET_DISTRO="wslw-${TARGET_NAME}"
+    TARGET_HASH=$(sha256sum "$target_file" | awk '{print $1}')
+}
+
+target_state_file() {
+    local target_name="$1"
+    echo "${STATE_DIR}/${target_name}.state"
+}
+
+write_target_state() {
+    local target_name="$1"
+    local target_file="$2"
+    mkdir -p "$STATE_DIR"
+    cat > "$(target_state_file "$target_name")" << EOF
+TARGET_NAME=$TARGET_NAME
+TARGET_DISTRO=$TARGET_DISTRO
+TARGET_FILE=$target_file
+TARGET_HASH=$TARGET_HASH
+UPDATED_AT=$(date +%s)
+EOF
+}
+
+read_target_state() {
+    local target_name="$1"
+    local state_file
+    state_file=$(target_state_file "$target_name")
+    [[ -f "$state_file" ]] || return 1
+    # shellcheck source=/dev/null
+    source "$state_file"
+}
+
+cmd_up() {
+    local target_ref=""
+    local rebuild=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --target)
+                target_ref="$2"; shift 2 ;;
+            --rebuild)
+                rebuild=true; shift ;;
+            --help|-h)
+                echo "Usage: $(basename "$0") up --target <name|file> [--rebuild]"; return 0 ;;
+            *)
+                [[ -z "$target_ref" ]] && target_ref="$1" && shift || { log_error "Unknown option: $1"; return 1; }
+                ;;
+        esac
+    done
+    [[ -n "$target_ref" ]] || { log_error "Target required"; return 1; }
+
+    local target_file
+    target_file=$(resolve_target_file "$target_ref") || { log_error "Target not found: $target_ref"; return 1; }
+    load_target "$target_file"
+    find_wsl_exe || return 1
+
+    local prev_hash=""
+    if read_target_state "$TARGET_NAME"; then
+        prev_hash="${TARGET_HASH:-}"
+    fi
+
+    load_target "$target_file"
+    if distribution_exists "$TARGET_DISTRO" && [[ "$rebuild" == "false" ]] && [[ -n "$prev_hash" ]] && [[ "$prev_hash" == "$TARGET_HASH" ]]; then
+        log_info "Target up-to-date: $TARGET_NAME ($TARGET_DISTRO)"
+        return 0
+    fi
+
+    if distribution_exists "$TARGET_DISTRO"; then
+        log_info "Rebuilding existing target distro: $TARGET_DISTRO"
+        unregister_distribution "$TARGET_DISTRO" || return 1
+    fi
+
+    cmd_build --name "$TARGET_DISTRO" --modules "$TARGET_MODULES" --version "$TARGET_ALPINE" || return 1
+    write_target_state "$TARGET_NAME" "$target_file"
+}
+
+cmd_shell() {
+    local target_name="${1:-}"
+    [[ -n "$target_name" ]] || { log_error "Target required"; return 1; }
+    read_target_state "$target_name" || { log_error "Unknown target: $target_name"; return 1; }
+    find_wsl_exe || return 1
+    exec "$WSL_EXE" -d "$TARGET_DISTRO"
+}
+
+cmd_exec_target() {
+    local target_name="${1:-}"
+    shift || true
+    [[ -n "$target_name" ]] || { log_error "Target required"; return 1; }
+    [[ "${1:-}" == "--" ]] && shift
+    [[ $# -gt 0 ]] || { log_error "Command required"; return 1; }
+    read_target_state "$target_name" || { log_error "Unknown target: $target_name"; return 1; }
+    run_in_distribution "$TARGET_DISTRO" "$@"
+}
+
+cmd_down() {
+    local target_name="${1:-}"
+    local purge=false
+    [[ -n "$target_name" ]] || { log_error "Target required"; return 1; }
+    shift || true
+    [[ "${1:-}" == "--purge" ]] && purge=true
+
+    read_target_state "$target_name" || { log_error "Unknown target: $target_name"; return 1; }
+    find_wsl_exe || return 1
+    "$WSL_EXE" --terminate "$TARGET_DISTRO" 2>/dev/null || true
+
+    if [[ "$purge" == "true" ]]; then
+        unregister_distribution "$TARGET_DISTRO" || true
+        rm -f "$(target_state_file "$target_name")"
+    fi
+}
+
+cmd_gc() {
+    local now cutoff_days=7
+    now=$(date +%s)
+    mkdir -p "$STATE_DIR"
+    for sf in "$STATE_DIR"/*.state; do
+        [[ -f "$sf" ]] || continue
+        # shellcheck source=/dev/null
+        source "$sf"
+        local age_days=$(( (now - UPDATED_AT) / 86400 ))
+        if [[ "$age_days" -ge "$cutoff_days" ]]; then
+            log_info "GC purging $TARGET_NAME ($TARGET_DISTRO), age ${age_days}d"
+            unregister_distribution "$TARGET_DISTRO" || true
+            rm -f "$sf"
+        fi
+    done
 }
 
 # Main command dispatcher
@@ -643,6 +801,21 @@ main() {
         install)
             # Alias for build --import-only
             cmd_build --import-only "$@"
+            ;;
+        up)
+            cmd_up "$@"
+            ;;
+        shell)
+            cmd_shell "$@"
+            ;;
+        exec)
+            cmd_exec_target "$@"
+            ;;
+        down)
+            cmd_down "$@"
+            ;;
+        gc)
+            cmd_gc "$@"
             ;;
         reset)
             cmd_reset "$@"

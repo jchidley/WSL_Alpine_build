@@ -64,6 +64,20 @@ load ../test_helper
     assert_output_contains "Archive file not found"
 }
 
+@test "wsl: import_distribution proceeds when distro does not exist" {
+    load_lib wsl-operations
+
+    local tarball="$TEST_TEMP_DIR/test.tar.gz"
+    touch "$tarball"
+
+    export DRY_RUN=1
+    run_command import_distribution "brandnewdistro" "$tarball"
+    assert_success
+    assert_output_contains "Would execute"
+    assert_output_contains "--import"
+    assert_output_contains "brandnewdistro"
+}
+
 @test "wsl: get_wsl_version returns default version for unknown distros" {
     load_lib wsl-operations
     
@@ -95,12 +109,37 @@ load ../test_helper
     assert_output_contains "not found"
 }
 
+@test "wsl: package_rootfs packages an existing rootfs directory" {
+    load_lib wsl-operations
+
+    local rootfs_dir="$TEST_TEMP_DIR/rootfs"
+    local output_file="$TEST_TEMP_DIR/package.tar.gz"
+    mkdir -p "$rootfs_dir/etc"
+    printf 'ok' > "$rootfs_dir/etc/issue"
+
+    run_command package_rootfs "$rootfs_dir" "$output_file"
+    assert_success
+    assert_file_exists "$output_file"
+}
+
 @test "wsl: create_wsl_file validates input file" {
     load_lib wsl-operations
     
     # Our validation logic
     run_command create_wsl_file "/tmp/nonexistent.tar.gz"
     assert_failure
+}
+
+@test "wsl: create_wsl_file copies tarball to .wsl" {
+    load_lib wsl-operations
+
+    local tar_file="$TEST_TEMP_DIR/sample.tar.gz"
+    local wsl_file="$TEST_TEMP_DIR/sample.wsl"
+    printf 'dummy' > "$tar_file"
+
+    run_command create_wsl_file "$tar_file" "$wsl_file"
+    assert_success
+    assert_file_exists "$wsl_file"
 }
 
 @test "wsl: wsl_supports_vhd checks for VHD support" {

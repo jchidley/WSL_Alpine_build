@@ -9,11 +9,18 @@ A safe, modular system for building customized Alpine Linux distributions for Wi
 ./wsl-alpine build --modules all
 
 # Or select specific modules
-./wsl-alpine build --modules base,docker,development
+./wsl-alpine build --modules base,podman,pi-agent,development
 
 # List available modules
 ./wsl-alpine module list
 ```
+
+## 📚 Docs (start here)
+
+- Docs index: [docs/README.md](docs/README.md)
+- How-to: [Disposable Podman-first workspace](docs/how-to/disposable-workspace.md)
+- Reference: [CLI reference](docs/reference/cli.md)
+- Explanation: [Why WSL workspaces](docs/explanation/why-wsl-workspaces.md)
 
 ## 🎯 Overview
 
@@ -46,12 +53,12 @@ Essential Alpine system with WSL configuration
 - Default user setup (wsluser)
 - OpenRC for service management
 
-### Docker Module
-Complete Docker environment for containers
-- Docker Engine & CLI
-- Docker Compose & BuildX
-- Lazydocker TUI
-- Optimized for WSL
+### Podman Module
+Podman-first container tooling for WSL
+- Podman and podman-remote
+- Rootless-ready dependencies
+- WSL-friendly container defaults
+- Optimized for in-distro usage
 
 ### Development Module
 Modern development tools and editors
@@ -60,12 +67,11 @@ Modern development tools and editors
 - Git, tmux, and language support
 - Shell enhancements
 
-### Claude Code Module
-AI-powered development assistant
+### pi-agent Module
+Installs the pi coding agent CLI used in this environment
 - Node.js runtime
-- Claude Code CLI installer
-- Docker-aware configuration
-- API integration support
+- @mariozechner/pi-coding-agent install helper
+- Designed for direct use in the target WSL distro
 
 ## 🛠️ Usage
 
@@ -93,7 +99,7 @@ AI-powered development assistant
 ```bash
 ./wsl-alpine build \
   --name my-alpine \           # Distribution name
-  --modules base,docker \       # Modules to install
+  --modules base,podman,pi-agent \       # Modules to install
   --version 3.18.6 \           # Alpine version
   --arch x86_64 \              # Architecture
   --output alpine.tar.gz \     # Output file
@@ -107,7 +113,7 @@ AI-powered development assistant
 ./wsl-alpine module list
 
 # Get module information
-./wsl-alpine module info docker
+./wsl-alpine module info podman
 ```
 
 ## 📝 Configuration
@@ -127,7 +133,7 @@ BUILD_DIR=/tmp/alpine-wsl-build
 CACHE_DIR=$HOME/.cache/alpine-wsl
 
 # Module selection
-DEFAULT_MODULES=base,docker,development
+DEFAULT_MODULES=base,podman,pi-agent,development
 ```
 
 ### Custom Modules
@@ -194,8 +200,8 @@ wsl-alpine                    # Main entry point
 │   └── package.sh           # Package management
 ├── src/modules/              # Feature modules
 │   ├── base/                # Core system
-│   ├── docker/              # Container runtime
-│   ├── claude-code/         # AI assistant
+│   ├── podman/              # Container runtime (Podman)
+│   ├── pi-agent/            # pi coding agent CLI
 │   └── development/         # Dev tools
 └── tests/                    # Test suite
     ├── unit/                # Unit tests

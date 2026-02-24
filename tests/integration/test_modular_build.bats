@@ -57,7 +57,7 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Available modules:" ]]
     [[ "$output" =~ "base" ]]
-    [[ "$output" =~ "docker" ]]
+    [[ "$output" =~ "podman" ]]
 }
 
 @test "wsl-alpine module info works" {
@@ -92,4 +92,31 @@ teardown() {
     run "$SCRIPT" test --help
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Run Tests" ]]
+}
+
+@test "wsl-alpine install forwards to import-only build flow" {
+    local tarball="$TEST_DIR/existing.tar.gz"
+    printf 'dummy' > "$tarball"
+
+    run "$SCRIPT" install "$tarball" --name test-install-alias
+    [[ "$output" =~ "Import-only mode" ]]
+}
+
+@test "wsl-alpine test --integration invokes integration bats files" {
+    local mock_bin="$TEST_DIR/mock-bin"
+    mkdir -p "$mock_bin"
+
+    cat > "$mock_bin/bats" << 'EOF'
+#!/usr/bin/env bash
+printf 'MOCK_BATS %s\n' "$*"
+exit 0
+EOF
+    chmod +x "$mock_bin/bats"
+
+    PATH="$mock_bin:$PATH" run "$SCRIPT" test --integration
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "MOCK_BATS" ]]
+    [[ "$output" =~ "tests/integration/test_build_workflow.bats" ]]
+    [[ "$output" =~ "tests/integration/test_modular_build.bats" ]]
+    [[ "$output" =~ "tests/integration/test_build_validation.bats" ]]
 }
