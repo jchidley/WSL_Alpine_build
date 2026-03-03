@@ -2,6 +2,7 @@
 
 ## How-to guides
 - [Disposable Podman-first workspace](./how-to/disposable-workspace.md)
+- [From-scratch setup options on Windows (WSL2)](./how-to/from-scratch-options.md)
 
 ## Reference
 - [CLI reference](./reference/cli.md)

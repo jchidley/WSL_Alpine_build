@@ -45,3 +45,12 @@ Build **minimal, disposable Alpine WSL2 environments** with a **Podman-first** w
 ## Known environment constraints (WSL)
 - `xdg-open` does not work; use Windows-side tools when needed.
 - Filesystem operations on `/mnt/c` are slower and less reliable for watch-heavy workflows.
+
+## From-scratch workflow notes
+- A fresh Windows setup still requires one Linux **builder distro** (e.g. `Debian` or `archlinux`) to run `./wsl-alpine ...`.
+- Do not assume `wsl --install -d Alpine` exists in the online catalog.
+- For timing comparisons across builders: use identical modules (`base,pi-agent`), run `wsl --shutdown` between runs, and compare wall-clock times only.
+
+## Documentation discipline
+- Human-facing docs (`docs/how-to/*`, README, explanations): follow Diátaxis (use human-docs skill).
+- Agent context files (`AGENTS.md`, `CLAUDE.md`, `SKILL.md`): keep concise, command-first, execution-focused (use llm-docs skill).
