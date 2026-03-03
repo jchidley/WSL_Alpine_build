@@ -22,7 +22,7 @@ set -e
 echo "Installing Podman packages..."
 apk add --no-cache \
   podman podman-remote fuse-overlayfs slirp4netns \
-  conmon crun uidmap shadow-subids iptables ip6tables
+  conmon crun shadow-subids iptables ip6tables
 
 echo "Configuring rootless podman defaults..."
 if ! grep -q '^wsluser:' /etc/subuid 2>/dev/null; then

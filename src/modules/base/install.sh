@@ -42,6 +42,11 @@ fi
 
 echo "✓ Base packages installed successfully"
 
+# Ensure default user owns its home directory
+if id wsluser >/dev/null 2>&1; then
+    chown -R wsluser:wsluser /home/wsluser 2>/dev/null || true
+fi
+
 # Clean up package cache
 echo "Cleaning package cache..."
 apk cache clean
@@ -218,6 +223,8 @@ cp "$ROOTFS_DIR/home/wsluser/.profile" "$ROOTFS_DIR/root/.profile"
 chmod 755 "$ROOTFS_DIR/home/wsluser"
 chmod 644 "$ROOTFS_DIR/home/wsluser/.ashrc"
 chmod 644 "$ROOTFS_DIR/home/wsluser/.profile"
+# Ensure default user owns home directory (required for rootless podman)
+chown -R 1000:1000 "$ROOTFS_DIR/home/wsluser"
 
 # Configure services
 log_progress "Configuring OpenRC for WSL..."
