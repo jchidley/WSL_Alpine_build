@@ -5,8 +5,11 @@ author: Alpine WSL Build System
 dependencies:
   - base
 packages:
-  - nodejs
+  - nodejs-current
   - npm
   - git
-  - curl
   - bash
+  - ca-certificates
+  - direnv
+  - ripgrep
+  - fd

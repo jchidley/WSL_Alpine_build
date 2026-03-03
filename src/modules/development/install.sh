@@ -46,11 +46,6 @@ for grammar in $GRAMMARS; do
     fi
 done
 
-# Try markdown grammar from testing
-if apk add --no-cache tree-sitter-markdown@testing 2>/dev/null; then
-    echo "  ✓ Installed tree-sitter-markdown"
-fi
-
 echo "✓ Helix syntax highlighting setup complete"
 EOF
 
@@ -124,6 +119,10 @@ cp -r "$ROOTFS_DIR/home/wsluser/.config/helix" "$ROOTFS_DIR/root/.config/"
 cat >> "$ROOTFS_DIR/home/wsluser/.bashrc" << 'EOF'
 
 # Development tools configuration
+if [ -f /etc/profile.d/pi-agent-env.sh ]; then
+    . /etc/profile.d/pi-agent-env.sh
+fi
+
 export EDITOR=hx
 export VISUAL=hx
 export PAGER="bat --style=plain"

@@ -100,7 +100,7 @@ Installs the pi coding agent CLI used in this environment
 ./wsl-alpine build \
   --name my-alpine \           # Distribution name
   --modules base,podman,pi-agent \       # Modules to install
-  --version 3.18.6 \           # Alpine version
+  --version 3.23.3 \           # Alpine version
   --arch x86_64 \              # Architecture
   --output alpine.tar.gz \     # Output file
   --no-import                  # Build only, don't import
@@ -125,7 +125,7 @@ Create a `.env` file for persistent configuration:
 ```bash
 # Distribution settings
 WSL_DISTRIBUTION_NAME=alpine-wsl
-ALPINE_VERSION=3.18.6
+ALPINE_VERSION=3.23.3
 ALPINE_ARCH=x86_64
 
 # Build settings

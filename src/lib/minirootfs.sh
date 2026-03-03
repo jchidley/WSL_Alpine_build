@@ -9,7 +9,7 @@ __MINIROOTFS_SH_LOADED=1
 # Common functions are sourced by main script
 
 # Default configuration
-export ALPINE_VERSION="${ALPINE_VERSION:-3.18.6}"
+export ALPINE_VERSION="${ALPINE_VERSION:-3.23.3}"
 export ALPINE_ARCH="${ALPINE_ARCH:-x86_64}"
 export ALPINE_MIRROR="${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}"
 export CACHE_DIR="${CACHE_DIR:-$HOME/.cache/alpine-wsl}"
@@ -212,7 +212,6 @@ configure_apk_repos() {
     cat > "$repos_file" << EOF
 ${mirror}/v${version_major}/main
 ${mirror}/v${version_major}/community
-@testing ${mirror}/edge/testing
 EOF
     
     log_success "APK repositories configured"
