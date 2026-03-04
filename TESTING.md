@@ -18,15 +18,19 @@ Runs unit + integration tests for owned logic (CLI parsing, module wiring, WSL o
 Run in your active builder distro:
 
 ```bash
-./wsl-alpine build --name alpine-test-smoke --modules base,pi-agent
-wsl.exe -d alpine-test-smoke -- sh -lc "pi --version && rg --version && fd --version"
-wsl.exe --terminate alpine-test-smoke
+./wsl-alpine test-smoke
 ```
 
 This verifies:
 - import works via `wsl.exe`
 - OOBE auto-finalization runs
 - pi + core tooling are present in the resulting distro
+
+Advanced usage:
+
+```bash
+./wsl-alpine test-smoke --name alpine-test-smoke --modules base,pi-agent --keep
+```
 
 ## 3) Builder parity test (Debian + Arch)
 

@@ -26,6 +26,7 @@ Build **minimal, disposable Alpine WSL2 environments** with a **Podman-first** w
 | List modules | `./wsl-alpine module list` |
 | Module info | `./wsl-alpine module info <module>` |
 | Run standard tests | `./wsl-alpine test` |
+| Run real smoke test | `./wsl-alpine test-smoke` |
 
 ## Modules (current)
 - `base` (required)

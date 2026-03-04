@@ -32,11 +32,11 @@ bats tests/integration/test_build_workflow.bats \
 
 ## Builder parity (manual validation)
 
-Builder-distro parity (Debian vs Arch) is validated as a manual smoke check, not in default BATS:
+Builder-distro parity (Debian vs Arch) is validated as a real smoke check, not in default BATS:
 
 ```bash
-./wsl-alpine build --name alpine-validate-deb --modules base,pi-agent
-wsl.exe --cd /root/WSL_Alpine_build -d archlinux -- bash -lc "./wsl-alpine build --name alpine-validate-arch --modules base,pi-agent"
+./wsl-alpine test-smoke --name alpine-validate-deb --modules base,pi-agent --keep
+wsl.exe --cd /root/WSL_Alpine_build -d archlinux -- bash -lc "./wsl-alpine test-smoke --name alpine-validate-arch --modules base,pi-agent --keep"
 
 wsl.exe -d alpine-validate-deb  -- sh -lc "pi --version && test -f /etc/oobe.done"
 wsl.exe -d alpine-validate-arch -- sh -lc "pi --version && test -f /etc/oobe.done"

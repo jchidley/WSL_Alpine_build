@@ -42,6 +42,7 @@ Commands:
     gc          Cleanup disposable workspaces
     reset       Remove a WSL distribution
     test        Run tests
+    test-smoke  Run real end-to-end smoke build/import test
     module      Manage distribution modules
     list        List WSL distributions
     help        Show this help message
@@ -57,7 +58,8 @@ Examples:
     $(basename "$0") shell dev                # Open shell in target
     $(basename "$0") down dev --purge         # Remove target distro
     $(basename "$0") module list              # List available modules
-    $(basename "$0") test                     # Run all tests
+    $(basename "$0") test                     # Run standard tests
+    $(basename "$0") test-smoke               # Run real smoke build/import
 
 For command-specific help, use: $(basename "$0") <command> --help
 EOF
@@ -456,6 +458,68 @@ EOF
          "${SCRIPT_DIR}"/tests/integration/test_build_validation.bats
 }
 
+# Real end-to-end smoke test (no mocks)
+cmd_test_smoke() {
+    local smoke_name="alpine-smoke-$(date +%Y%m%d%H%M%S)"
+    local smoke_modules="base,pi-agent"
+    local keep=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --name)
+                smoke_name="$2"
+                shift 2
+                ;;
+            --modules)
+                smoke_modules="$2"
+                shift 2
+                ;;
+            --keep)
+                keep=true
+                shift
+                ;;
+            --help|-h)
+                cat << EOF
+Run Real Smoke Test
+
+Usage: $(basename "$0") test-smoke [--name <distro>] [--modules <list>] [--keep]
+
+Defaults:
+  --name alpine-smoke-<timestamp>
+  --modules base,pi-agent
+
+Verifies real build/import/finalize and checks:
+  - /etc/oobe.done exists
+  - pi, rg, fd commands work
+EOF
+                return 0
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                return 1
+                ;;
+        esac
+    done
+
+    log_info "Running smoke build: $smoke_name ($smoke_modules)"
+    cmd_build --name "$smoke_name" --modules "$smoke_modules" || return 1
+
+    find_wsl_exe || return 1
+    if ! "$WSL_EXE" --cd / -d "$smoke_name" -- sh -lc 'test -f /etc/oobe.done && pi --version >/dev/null && rg --version >/dev/null && fd --version >/dev/null'; then
+        log_error "Smoke verification failed for $smoke_name"
+        return 1
+    fi
+
+    log_success "Smoke verification passed: $smoke_name"
+
+    if [[ "$keep" == "false" ]]; then
+        log_info "Cleaning up smoke distro: $smoke_name"
+        unregister_distribution "$smoke_name" || true
+    else
+        log_info "Keeping smoke distro for inspection: $smoke_name"
+    fi
+}
+
 # Module command
 cmd_module() {
     local subcmd="${1:-list}"
@@ -751,6 +815,9 @@ main() {
             ;;
         test)
             cmd_test "$@"
+            ;;
+        test-smoke)
+            cmd_test_smoke "$@"
             ;;
         module)
             cmd_module "$@"

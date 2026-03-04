@@ -11,6 +11,7 @@
 ./wsl-alpine list
 ./wsl-alpine reset <name>
 ./wsl-alpine test
+./wsl-alpine test-smoke [--name <name>] [--modules <list>] [--keep]
 ```
 
 ## Disposable workspace commands

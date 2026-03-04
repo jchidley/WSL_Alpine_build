@@ -110,6 +110,9 @@ Use `./wsl-alpine` for build/packaging/import automation. Once imported, operate
 
 # Run tests
 ./wsl-alpine test
+
+# Run real end-to-end smoke test (build/import/verify)
+./wsl-alpine test-smoke
 ```
 
 ### Build Options
