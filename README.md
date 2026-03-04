@@ -34,7 +34,7 @@ wsl.exe --terminate alpine-dev
 
 ## 📚 Docs (start here)
 
-- Docs index: [docs/README.md](docs/README.md)
+- Docs index (Diátaxis): [docs/README.md](docs/README.md)
 - How-to: [Disposable Podman-first workspace](docs/how-to/disposable-workspace.md)
 - Reference: [CLI reference](docs/reference/cli.md)
 - Explanation: [Why WSL workspaces](docs/explanation/why-wsl-workspaces.md)
