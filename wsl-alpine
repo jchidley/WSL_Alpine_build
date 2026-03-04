@@ -22,7 +22,7 @@ readonly VERSION="2.0.0"
 
 # Default values
 DEFAULT_DISTRO_NAME="alpine-wsl"
-DEFAULT_MODULES="base,podman,pi-agent,development"
+DEFAULT_MODULES="base,pi-agent"
 DEFAULT_BUILD_DIR="/tmp/alpine-wsl-build"
 
 # Print usage
@@ -565,7 +565,7 @@ load_target() {
 
     TARGET_NAME="${TARGET_NAME:-$(basename "$target_file" .yaml)}"
     TARGET_ALPINE="${TARGET_ALPINE:-$ALPINE_VERSION}"
-    TARGET_MODULES="${TARGET_MODULES:-base,podman,pi-agent,development}"
+    TARGET_MODULES="${TARGET_MODULES:-base,pi-agent}"
     TARGET_DISPOSABLE="${TARGET_DISPOSABLE:-true}"
     TARGET_DISTRO="wslw-${TARGET_NAME}"
     TARGET_HASH=$(sha256sum "$target_file" | awk '{print $1}')

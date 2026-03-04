@@ -13,4 +13,3 @@ packages:
   - direnv
   - ripgrep
   - fd
-  - fnm
