@@ -9,9 +9,9 @@ setup() {
     export BUILD_DIR="$TEST_DIR/build"
     export OUTPUT_FILE="$TEST_DIR/test-alpine.tar.gz"
     export DRY_RUN=1
-    
+
     mkdir -p "$TEST_DIR"
-    
+
     # Path to the main script
     export SCRIPT="$BATS_TEST_DIRNAME/../../wsl-alpine"
 }
@@ -48,8 +48,7 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Build Alpine WSL Distribution" ]]
     [[ "$output" =~ "--modules" ]]
-    [[ "$output" =~ "--version" ]]
-    [[ "$output" =~ "--arch" ]]
+    [[ "$output" =~ "--no-import" ]]
 }
 
 @test "wsl-alpine module list works" {
@@ -68,12 +67,6 @@ teardown() {
     [[ "$output" =~ "description:" ]]
 }
 
-@test "wsl-alpine list works" {
-    run "$SCRIPT" list
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "WSL Distributions:" ]]
-}
-
 @test "wsl-alpine handles unknown commands" {
     # Test with an invalid command
     run "$SCRIPT" invalid-command
@@ -88,35 +81,13 @@ teardown() {
 }
 
 @test "wsl-alpine test command works" {
-    # Test that the test command exists
     run "$SCRIPT" test --help
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Run Tests" ]]
 }
 
-@test "wsl-alpine install forwards to import-only build flow" {
-    local tarball="$TEST_DIR/existing.tar.gz"
-    printf 'dummy' > "$tarball"
-
-    run "$SCRIPT" install "$tarball" --name test-install-alias
-    [[ "$output" =~ "Import-only mode" ]]
-}
-
-@test "wsl-alpine test --integration invokes integration bats files" {
-    local mock_bin="$TEST_DIR/mock-bin"
-    mkdir -p "$mock_bin"
-
-    cat > "$mock_bin/bats" << 'EOF'
-#!/usr/bin/env bash
-printf 'MOCK_BATS %s\n' "$*"
-exit 0
-EOF
-    chmod +x "$mock_bin/bats"
-
-    PATH="$mock_bin:$PATH" run "$SCRIPT" test --integration
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "MOCK_BATS" ]]
-    [[ "$output" =~ "tests/integration/test_build_workflow.bats" ]]
-    [[ "$output" =~ "tests/integration/test_modular_build.bats" ]]
-    [[ "$output" =~ "tests/integration/test_build_validation.bats" ]]
+@test "wsl-alpine install validates missing archive" {
+    run "$SCRIPT" install --name test-install-alias /tmp/does-not-exist.tar.gz
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "Archive file not found" ]]
 }

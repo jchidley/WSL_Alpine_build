@@ -1,6 +1,6 @@
 # WSL Alpine Build
 
-A safe, modular system for building customized Alpine Linux distributions for Windows Subsystem for Linux (WSL).
+A safe, modular system for building customized Alpine Linux distributions for Windows Subsystem for Linux (WSL). Builds are produced by `./wsl-alpine`, and day-to-day distro lifecycle/actions are run via `wsl.exe` directly.
 
 ## 🚀 Quick Start
 
@@ -13,6 +13,20 @@ A safe, modular system for building customized Alpine Linux distributions for Wi
 
 # List available modules
 ./wsl-alpine module list
+```
+
+### Build with the script, run with `wsl.exe`
+
+```bash
+# Build + import with the project script
+./wsl-alpine build --name alpine-dev --modules base,podman,pi-agent,development
+```
+
+```powershell
+# Then use wsl.exe directly from Windows shells
+wsl.exe -d alpine-dev
+wsl.exe -d alpine-dev -- podman info
+wsl.exe --terminate alpine-dev
 ```
 
 ## 📚 Docs (start here)
@@ -75,6 +89,8 @@ Installs the pi coding agent CLI used in this environment
 
 ## 🛠️ Usage
 
+Use `./wsl-alpine` for build/packaging/import automation. Once imported, operate the distro with `wsl.exe` from CMD/PowerShell.
+
 ### Basic Commands
 
 ```bash
@@ -100,9 +116,6 @@ Installs the pi coding agent CLI used in this environment
 ./wsl-alpine build \
   --name my-alpine \           # Distribution name
   --modules base,podman,pi-agent \       # Modules to install
-  --version 3.23.3 \           # Alpine version
-  --arch x86_64 \              # Architecture
-  --output alpine.tar.gz \     # Output file
   --no-import                  # Build only, don't import
 ```
 
@@ -158,17 +171,8 @@ src/modules/mymodule/
 The project includes comprehensive tests using BATS:
 
 ```bash
-# Run all tests
+# Run standard test suite
 ./wsl-alpine test
-
-# Run unit tests only
-./wsl-alpine test --unit
-
-# Run integration tests
-./wsl-alpine test --integration
-
-# Clean up test distributions
-./wsl-alpine test --cleanup
 ```
 
 ## 🔄 Migration from Old Scripts

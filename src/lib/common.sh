@@ -182,6 +182,33 @@ check_sudo_and_paths() {
     fi
 }
 
+# Validate that WSL interop is healthy (WSLInterop binfmt + executable launch)
+validate_wsl_interop() {
+    # Skip deep checks in tests/mocks
+    if [[ "${WSL_EXE:-}" == *"/mocks/"* ]] || [[ -n "${BATS_TEST_DIRNAME:-}" ]]; then
+        return 0
+    fi
+
+    # If execution works, interop is good enough
+    if "$WSL_EXE" --status >/dev/null 2>&1 || "$WSL_EXE" --list --quiet >/dev/null 2>&1; then
+        return 0
+    fi
+
+    log_error "Windows interop appears broken (cannot execute wsl.exe)."
+    log_error "Expected in WSL: /proc/sys/fs/binfmt_misc/WSLInterop with interpreter /init"
+    log_error "Fix steps:"
+    log_error "  1) Ensure /etc/wsl.conf contains:"
+    log_error "     [interop]"
+    log_error "     enabled=true"
+    log_error "     appendWindowsPath=true"
+    log_error "  2) From Windows PowerShell run: wsl --shutdown"
+    log_error "  3) Reopen distro and verify: powershell.exe -NoProfile -Command 'Write-Output ok'"
+    log_error "Emergency in-session repair:"
+    log_error "  echo ':WSLInterop:M::MZ::/init:PF' | sudo tee /proc/sys/fs/binfmt_misc/register"
+
+    return 1
+}
+
 # Function to find wsl.exe with fallback
 find_wsl_exe() {
     # Try to find wsl.exe in PATH first
@@ -195,8 +222,13 @@ find_wsl_exe() {
         log_error "Current PATH: $PATH"
         return 1
     fi
-    
+
     export WSL_EXE
+
+    if ! validate_wsl_interop; then
+        return 1
+    fi
+
     log_debug "Found WSL executable at: $WSL_EXE"
     return 0
 }
@@ -258,51 +290,40 @@ create_wsl_install_dir() {
 # Function to check if a WSL distribution exists
 distribution_exists() {
     local distro_name="$1"
-    
+
     if [[ -z "$distro_name" ]]; then
         log_error "Distribution name not provided"
         return 2
     fi
-    
+
     # Ensure WSL_EXE is set
     if [[ -z "${WSL_EXE:-}" ]]; then
         if ! find_wsl_exe; then
             return 2
         fi
     fi
-    
-    # Use WSL list to check, handling Unicode output
-    local wsl_output
-    wsl_output=$($WSL_EXE --list --all 2>/dev/null)
-    
+
     # Check if we're using a mock (output is already UTF-8)
     if [[ "$WSL_EXE" == *"/mocks/"* ]] || [[ -n "${BATS_TEST_DIRNAME:-}" ]]; then
-        # Mock output is already UTF-8
-        if echo "$wsl_output" | grep -q "^${distro_name}$\|^${distro_name}[[:space:]]"; then
+        if "$WSL_EXE" --list --all 2>/dev/null | grep -q "^${distro_name}$\|^${distro_name}[[:space:]]"; then
             return 0
         fi
     else
-        # Real wsl.exe outputs UTF-16LE
-        if echo "$wsl_output" | iconv -f UTF-16LE -t UTF-8 2>/dev/null | grep -q "^${distro_name}$\|^${distro_name}[[:space:]]"; then
+        if "$WSL_EXE" --list --all 2>/dev/null | iconv -f UTF-16LE -t UTF-8 2>/dev/null | grep -q "^${distro_name}$\|^${distro_name}[[:space:]]"; then
             return 0
         fi
     fi
-    
+
     return 1
 }
 
 # Function to get list of WSL distributions
 get_wsl_distributions() {
-    local wsl_output
-    wsl_output=$($WSL_EXE --list --all 2>/dev/null)
-    
     # Check if we're using a mock (output is already UTF-8)
     if [[ "$WSL_EXE" == *"/mocks/"* ]] || [[ -n "${BATS_TEST_DIRNAME:-}" ]]; then
-        # Mock output is already UTF-8
-        echo "$wsl_output" | tr -d '\0\r' | grep -v "^Windows" | grep -v "^$" | sed 's/[[:space:]]*$//'
+        "$WSL_EXE" --list --all 2>/dev/null | tr -d '\0\r' | grep -v "^Windows" | grep -v "^$" | sed 's/[[:space:]]*$//'
     else
-        # Real wsl.exe outputs UTF-16LE
-        echo "$wsl_output" | iconv -f UTF-16LE -t UTF-8 2>/dev/null | tr -d '\0\r' | grep -v "^Windows" | grep -v "^$" | sed 's/[[:space:]]*$//'
+        "$WSL_EXE" --list --all 2>/dev/null | iconv -f UTF-16LE -t UTF-8 2>/dev/null | tr -d '\0\r' | grep -v "^Windows" | grep -v "^$" | sed 's/[[:space:]]*$//'
     fi
 }
 
@@ -446,7 +467,7 @@ validate_distribution_name() {
 # Export all functions
 export -f log_info log_success log_error log_warning log_progress log_debug log_verbose
 export -f log die is_dry_run dry_run_exec
-export -f load_config ensure_windows_paths check_sudo_and_paths find_wsl_exe
+export -f load_config ensure_windows_paths check_sudo_and_paths validate_wsl_interop find_wsl_exe
 export -f get_real_home get_windows_username get_windows_path create_wsl_install_dir
 export -f distribution_exists get_wsl_distributions
 export -f safe_remove_file safe_remove_dir

@@ -119,10 +119,13 @@ import_distribution() {
     win_install_location=$(get_windows_path "$install_location")
     win_tar_path=$(get_windows_path "$tar_path")
     
+    local display_install_location="${win_install_location//\\/\\\\}"
+    local display_tar_path="${win_tar_path//\\/\\\\}"
+
     log_info "Import details:"
     log_info "  Name: $distro_name"
-    log_info "  Location: $win_install_location"
-    log_info "  Archive: $win_tar_path"
+    log_info "  Location: $display_install_location"
+    log_info "  Archive: $display_tar_path"
     log_info "  Version: WSL${wsl_version}"
     
     # Perform import
@@ -380,8 +383,8 @@ run_in_distribution() {
     
     log_debug "Running in $distro_name: $command"
     
-    # Execute command
-    if dry_run_exec $WSL_EXE -d "$distro_name" -- "$@"; then
+    # Execute command from a stable directory to avoid cross-distro cwd translation issues
+    if dry_run_exec $WSL_EXE --cd / -d "$distro_name" -- "$@"; then
         return 0
     else
         return 1

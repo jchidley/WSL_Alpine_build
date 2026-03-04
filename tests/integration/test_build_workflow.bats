@@ -48,12 +48,6 @@ load ../test_helper
     assert_output_contains "Unknown option"
 }
 
-@test "build: import-only mode validates archive path" {
-    run_command "$PROJECT_ROOT/wsl-alpine" build --name test-import-only --import-only /tmp/does-not-exist.tar.gz
-    assert_failure
-    assert_output_contains "Import-only mode"
-    assert_output_contains "Archive file not found"
-}
 
 @test "build: reset command requires distribution name" {
     run_command "$PROJECT_ROOT/wsl-alpine" reset

@@ -41,7 +41,7 @@ Commands:
     down        Stop/remove a workspace target
     gc          Cleanup disposable workspaces
     reset       Remove a WSL distribution
-    test        Run tests or test builds
+    test        Run tests
     module      Manage distribution modules
     list        List WSL distributions
     help        Show this help message
@@ -49,9 +49,6 @@ Commands:
 Options:
     --help, -h      Show help for a specific command
     --version, -v   Show version information
-    --debug         Enable debug output
-    --verbose       Enable verbose output
-    --dry-run       Show what would be done without making changes
 
 Examples:
     $(basename "$0") build                    # Build with default settings
@@ -78,20 +75,13 @@ Options:
     --modules MODULES       Comma-separated list of modules to install
                            Available: base, podman, pi-agent, development
                            Use 'all' to install all modules
-    --version VERSION      Alpine version (default: $ALPINE_VERSION)
-    --arch ARCH           Architecture (default: $ALPINE_ARCH)
-    --output FILE         Output file path (default: alpine-wsl.tar.gz)
-    --build-dir DIR       Build directory (default: $DEFAULT_BUILD_DIR)
     --no-import          Build only, don't import to WSL
-    --import-only FILE    Import existing archive to WSL
-    --config FILE        Load configuration from file
     --help, -h           Show this help message
 
 Examples:
     $(basename "$0") build
     $(basename "$0") build --name my-alpine --modules base,podman,pi-agent
     $(basename "$0") build --modules all --no-import
-    $(basename "$0") build --import-only alpine-wsl.tar.gz
 EOF
 }
 
@@ -104,8 +94,6 @@ cmd_build() {
     local output_file="alpine-wsl.tar.gz"
     local build_dir="$DEFAULT_BUILD_DIR"
     local no_import=false
-    local import_only=""
-    local config_file=""
     
     # Parse build options
     while [[ $# -gt 0 ]]; do
@@ -118,33 +106,9 @@ cmd_build() {
                 modules="$2"
                 shift 2
                 ;;
-            --version)
-                alpine_version="$2"
-                shift 2
-                ;;
-            --arch)
-                arch="$2"
-                shift 2
-                ;;
-            --output)
-                output_file="$2"
-                shift 2
-                ;;
-            --build-dir)
-                build_dir="$2"
-                shift 2
-                ;;
             --no-import)
                 no_import=true
                 shift
-                ;;
-            --import-only)
-                import_only="$2"
-                shift 2
-                ;;
-            --config)
-                config_file="$2"
-                shift 2
                 ;;
             --help|-h)
                 print_build_usage
@@ -158,21 +122,16 @@ cmd_build() {
         esac
     done
     
-    # Load configuration if specified
-    if [[ -n "$config_file" ]]; then
-        load_config "$config_file"
-    fi
-    
-    # Import only mode
-    if [[ -n "$import_only" ]]; then
-        log_info "Import-only mode"
-        import_distribution "$distro_name" "$import_only"
-        return $?
-    fi
-    
     # Validate inputs
     if ! validate_distribution_name "$distro_name"; then
         return 1
+    fi
+
+    # Fail fast on Windows interop problems when import is requested
+    if [[ "$no_import" == "false" ]]; then
+        if ! find_wsl_exe; then
+            return 1
+        fi
     fi
     
     # Check prerequisites
@@ -257,8 +216,47 @@ cmd_build() {
     if [[ "$no_import" == "false" ]]; then
         log_info ""
         log_info "To start the distribution:"
-        log_info "  wsl -d $distro_name"
+        log_info "  wsl.exe -d $distro_name"
     fi
+}
+
+# Install command (import existing archive)
+cmd_install() {
+    local distro_name="$DEFAULT_DISTRO_NAME"
+    local archive=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --name)
+                distro_name="$2"
+                shift 2
+                ;;
+            --help|-h)
+                cat << EOF
+Import Existing Alpine WSL Archive
+
+Usage: $(basename "$0") install [--name <distro>] <archive.tar.gz>
+
+Examples:
+    $(basename "$0") install alpine-wsl.tar.gz
+    $(basename "$0") install --name my-alpine alpine-wsl.tar.gz
+EOF
+                return 0
+                ;;
+            *)
+                if [[ -z "$archive" ]]; then
+                    archive="$1"
+                    shift
+                else
+                    log_error "Unknown option: $1"
+                    return 1
+                fi
+                ;;
+        esac
+    done
+
+    [[ -n "$archive" ]] || { log_error "Archive file required"; return 1; }
+    import_distribution "$distro_name" "$archive"
 }
 
 # Apply a module to the rootfs
@@ -336,8 +334,8 @@ echo "✓ First-time setup complete!"
 echo ""
 echo "The distribution will now restart with the default user."
 echo "Please close this window and run:"
-echo "  wsl --terminate $WSL_DISTRO_NAME"
-echo "  wsl -d $WSL_DISTRO_NAME"
+echo "  wsl.exe --terminate $WSL_DISTRO_NAME"
+echo "  wsl.exe -d $WSL_DISTRO_NAME"
 echo ""
 EOF
     
@@ -405,46 +403,15 @@ EOF
 
 # Test command
 cmd_test() {
-    local test_type="all"
-    local cleanup_only=false
-    
-    # Parse test options
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --unit)
-                test_type="unit"
-                shift
-                ;;
-            --integration)
-                test_type="integration"
-                shift
-                ;;
-            --real)
-                test_type="real"
-                shift
-                ;;
-            --cleanup)
-                cleanup_only=true
-                shift
-                ;;
             --help|-h)
                 cat << EOF
 Run Tests
 
-Usage: $(basename "$0") test [options]
+Usage: $(basename "$0") test
 
-Options:
-    --unit          Run unit tests only
-    --integration   Run integration tests only
-    --real          Run tests requiring real WSL/network (RUN_INTEGRATION_TESTS=1)
-    --cleanup       Clean up test distributions
-    --help, -h      Show this help message
-
-Examples:
-    $(basename "$0") test                # Run all standard tests
-    $(basename "$0") test --unit         # Run unit tests only
-    $(basename "$0") test --real         # Run tests with real resources
-    $(basename "$0") test --cleanup      # Clean up test artifacts
+Runs the standard unit + integration suite.
 EOF
                 return 0
                 ;;
@@ -454,63 +421,19 @@ EOF
                 ;;
         esac
     done
-    
-    # Cleanup test distributions
-    if [[ "$cleanup_only" == "true" ]]; then
-        log_info "Cleaning up test distributions..."
-        local test_distros
-        test_distros=$(get_wsl_distributions | grep "^${TEST_DISTRIBUTION_PREFIX}")
-        
-        if [[ -z "$test_distros" ]]; then
-            log_info "No test distributions found"
-            return 0
-        fi
-        
-        echo "$test_distros" | while read -r distro; do
-            log_progress "Removing: $distro"
-            unregister_distribution "$distro"
-        done
-        
-        return 0
-    fi
-    
-    # Run tests
-    log_info "Running tests: $test_type"
-    
-    # Check for test framework
+
+    log_info "Running standard test suite"
+
     if ! command_exists bats; then
         log_error "BATS test framework not found"
         log_info "Install with: sudo apt-get install bats"
         return 1
     fi
-    
-    # Run appropriate tests
-    case "$test_type" in
-        unit)
-            bats "${SCRIPT_DIR}"/tests/unit/*.bats
-            ;;
-        integration)
-            # Run basic integration tests
-            bats "${SCRIPT_DIR}"/tests/integration/test_build_workflow.bats \
-                 "${SCRIPT_DIR}"/tests/integration/test_modular_build.bats \
-                 "${SCRIPT_DIR}"/tests/integration/test_build_validation.bats
-            # Note: test_real_environment.bats requires RUN_INTEGRATION_TESTS=1
-            ;;
-        all)
-            # Run all tests except those requiring special environment
-            bats "${SCRIPT_DIR}"/tests/unit/*.bats \
-                 "${SCRIPT_DIR}"/tests/integration/test_build_workflow.bats \
-                 "${SCRIPT_DIR}"/tests/integration/test_modular_build.bats \
-                 "${SCRIPT_DIR}"/tests/integration/test_build_validation.bats
-            # Note: test_real_environment.bats requires RUN_INTEGRATION_TESTS=1
-            ;;
-        real)
-            # Run tests that require real environment
-            log_info "Running integration tests with real resources..."
-            log_warning "These tests require network access and may modify your system"
-            RUN_INTEGRATION_TESTS=1 bats "${SCRIPT_DIR}"/tests/integration/test_real_environment.bats
-            ;;
-    esac
+
+    bats "${SCRIPT_DIR}"/tests/unit/*.bats \
+         "${SCRIPT_DIR}"/tests/integration/test_build_workflow.bats \
+         "${SCRIPT_DIR}"/tests/integration/test_modular_build.bats \
+         "${SCRIPT_DIR}"/tests/integration/test_build_validation.bats
 }
 
 # Module command
@@ -694,7 +617,7 @@ cmd_up() {
         unregister_distribution "$TARGET_DISTRO" || return 1
     fi
 
-    cmd_build --name "$TARGET_DISTRO" --modules "$TARGET_MODULES" --version "$TARGET_ALPINE" || return 1
+    ALPINE_VERSION="$TARGET_ALPINE" cmd_build --name "$TARGET_DISTRO" --modules "$TARGET_MODULES" || return 1
     write_target_state "$TARGET_NAME" "$target_file"
 }
 
@@ -703,7 +626,7 @@ cmd_shell() {
     [[ -n "$target_name" ]] || { log_error "Target required"; return 1; }
     read_target_state "$target_name" || { log_error "Unknown target: $target_name"; return 1; }
     find_wsl_exe || return 1
-    exec "$WSL_EXE" -d "$TARGET_DISTRO"
+    exec "$WSL_EXE" --cd / -d "$TARGET_DISTRO"
 }
 
 cmd_exec_target() {
@@ -755,19 +678,6 @@ main() {
     # Global options
     while [[ $# -gt 0 ]] && [[ "$1" =~ ^-- ]]; do
         case "$1" in
-            --debug)
-                DEBUG=1
-                set -x
-                shift
-                ;;
-            --verbose)
-                VERBOSE=1
-                shift
-                ;;
-            --dry-run)
-                DRY_RUN=1
-                shift
-                ;;
             --version|-v)
                 echo "Alpine WSL Management Tool v${VERSION}"
                 return 0
@@ -799,8 +709,7 @@ main() {
             cmd_build "$@"
             ;;
         install)
-            # Alias for build --import-only
-            cmd_build --import-only "$@"
+            cmd_install "$@"
             ;;
         up)
             cmd_up "$@"

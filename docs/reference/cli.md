@@ -9,7 +9,7 @@
 ./wsl-alpine module info <module>
 ./wsl-alpine list
 ./wsl-alpine reset <name>
-./wsl-alpine test [--unit|--integration|--real|--cleanup]
+./wsl-alpine test
 ```
 
 ## Disposable workspace commands
