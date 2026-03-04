@@ -203,7 +203,8 @@ cmd_build() {
         fi
         
         if [[ "$no_import" == "false" ]]; then
-            import_distribution "$distro_name" "$package_path"
+            import_distribution "$distro_name" "$package_path" || return 1
+            finalize_distribution_setup "$distro_name" || return 1
         fi
     fi
     
@@ -256,7 +257,26 @@ EOF
     done
 
     [[ -n "$archive" ]] || { log_error "Archive file required"; return 1; }
-    import_distribution "$distro_name" "$archive"
+
+    import_distribution "$distro_name" "$archive" || return 1
+    finalize_distribution_setup "$distro_name"
+}
+
+# Finalize imported distro by running first-boot provisioning once as root
+finalize_distribution_setup() {
+    local distro_name="$1"
+
+    find_wsl_exe || return 1
+
+    log_info "Finalizing imported distribution (running /etc/oobe.sh as root)..."
+    if ! "$WSL_EXE" --cd / -d "$distro_name" -u root -- /etc/oobe.sh; then
+        log_error "Failed to run /etc/oobe.sh in $distro_name"
+        return 1
+    fi
+
+    log_info "Terminating distribution to apply default user/session state..."
+    "$WSL_EXE" --terminate "$distro_name" 2>/dev/null || true
+    log_success "Distribution finalized: $distro_name"
 }
 
 # Apply a module to the rootfs
