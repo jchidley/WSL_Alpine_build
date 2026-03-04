@@ -28,7 +28,7 @@ cat > "$ROOTFS_DIR/etc/oobe.d/20-development-packages.sh" << 'EOF'
 echo "Installing minimal development tools..."
 
 # Install development packages
-DEV_PACKAGES="helix fd bat zoxide fzf ripgrep tree"
+DEV_PACKAGES="helix fd bat zoxide ripgrep"
 if ! apk add --no-cache $DEV_PACKAGES; then
     echo "ERROR: Failed to install development packages" >&2
     exit 1
@@ -130,11 +130,6 @@ export PAGER="bat --style=plain"
 # Initialize zoxide
 eval "$(zoxide init bash)"
 
-# FZF configuration
-export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
-export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border'
-export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
-
 # Bat configuration
 export BAT_THEME="gruvbox-dark"
 
@@ -152,19 +147,6 @@ alias vi='hx'
 # Development functions
 mkcd() {
     mkdir -p "$1" && cd "$1"
-}
-
-# Quick project search with fzf
-proj() {
-    local dir
-    dir=$(fd --type d --hidden --exclude .git . "${1:-.}" | fzf +m) && cd "$dir"
-}
-
-# Search and edit files with fzf
-fe() {
-    local files
-    IFS=$'\n' files=($(fzf --query="$1" --multi --select-1 --exit-0))
-    [[ -n "$files" ]] && ${EDITOR:-hx} "${files[@]}"
 }
 EOF
 
@@ -184,9 +166,7 @@ echo "Modern CLI Tools:"
 echo "  • fd - Fast file finder (replaces find)"
 echo "  • bat - Cat with syntax highlighting"
 echo "  • ripgrep (rg) - Fast grep replacement"
-echo "  • fzf - Fuzzy finder"
 echo "  • zoxide - Smart cd command"
-echo "  • tree - Directory tree viewer"
 echo ""
 echo "Useful aliases:"
 echo "  • cat → bat"
@@ -196,8 +176,6 @@ echo "  • vim/vi → hx"
 echo ""
 echo "Custom functions:"
 echo "  • mkcd - Make directory and cd into it"
-echo "  • proj - Project finder with fzf"
-echo "  • fe - Find and edit files"
 echo ""
 EOF
 chmod +x "$ROOTFS_DIR/etc/development-info"

@@ -9,6 +9,4 @@ packages:
   - fd
   - bat
   - zoxide
-  - fzf
   - ripgrep
-  - tree

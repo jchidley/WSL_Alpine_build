@@ -21,7 +21,7 @@ set -e
 
 echo "Installing pi-agent prerequisites from Alpine repositories..."
 # pi-agent requires Node >= 20; include shell/search tools used by pi workflows
-apk add --no-cache nodejs-current npm git bash ca-certificates direnv ripgrep fd
+apk add --no-cache nodejs-current npm git bash ca-certificates direnv ripgrep fd fnm
 
 echo "Installing @mariozechner/pi-coding-agent via npm..."
 npm install -g @mariozechner/pi-coding-agent
@@ -35,12 +35,12 @@ cat > "$ROOTFS_DIR/usr/local/bin/install-pi-agent" << 'EOF'
 set -e
 
 install_pkgs_as_root() {
-    apk add --no-cache nodejs-current npm git bash ca-certificates direnv ripgrep fd
+    apk add --no-cache nodejs-current npm git bash ca-certificates direnv ripgrep fd fnm
 }
 
 ensure_system_deps() {
     missing=""
-    for cmd in node npm git bash direnv rg fd; do
+    for cmd in node npm git bash direnv rg fd fnm; do
         command -v "$cmd" >/dev/null 2>&1 || missing="$missing $cmd"
     done
 
@@ -49,7 +49,7 @@ ensure_system_deps() {
     if [ "$(id -u)" -eq 0 ]; then
         install_pkgs_as_root
     elif command -v sudo >/dev/null 2>&1; then
-        sudo apk add --no-cache nodejs-current npm git bash ca-certificates direnv ripgrep fd
+        sudo apk add --no-cache nodejs-current npm git bash ca-certificates direnv ripgrep fd fnm
     else
         echo "ERROR: missing prerequisites:$missing"
         echo "Run as root once: wsl -d \$WSL_DISTRO_NAME -u root -- install-pi-agent"
@@ -123,6 +123,10 @@ if command -v direnv >/dev/null 2>&1; then
     else
         eval "$(direnv hook ash 2>/dev/null || direnv hook sh 2>/dev/null)"
     fi
+fi
+
+if command -v fnm >/dev/null 2>&1; then
+    eval "$(fnm env --use-on-cd --shell bash 2>/dev/null || fnm env --shell sh 2>/dev/null)"
 fi
 EOF
 chmod +x "$ROOTFS_DIR/etc/profile.d/pi-agent-env.sh"
