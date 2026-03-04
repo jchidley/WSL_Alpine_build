@@ -5,6 +5,7 @@
 ```bash
 ./wsl-alpine help
 ./wsl-alpine build [options]
+./wsl-alpine install [--name <name>] <archive.tar.gz>
 ./wsl-alpine module list
 ./wsl-alpine module info <module>
 ./wsl-alpine list
@@ -28,6 +29,13 @@ Current modules:
 - `podman`
 - `pi-agent`
 - `development`
+
+Default (fast path):
+
+```bash
+./wsl-alpine build
+# modules: base,pi-agent
+```
 
 Use all modules:
 

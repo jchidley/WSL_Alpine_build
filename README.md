@@ -5,6 +5,9 @@ A safe, modular system for building customized Alpine Linux distributions for Wi
 ## 🚀 Quick Start
 
 ```bash
+# Build default distro (fast path: base,pi-agent)
+./wsl-alpine build
+
 # Build Alpine WSL with all features
 ./wsl-alpine build --modules all
 
@@ -77,8 +80,7 @@ Podman-first container tooling for WSL
 ### Development Module
 Modern development tools and editors
 - Helix editor with syntax highlighting
-- Modern CLI tools (fd, bat, ripgrep, fzf)
-- Git, tmux, and language support
+- Modern CLI tools (fd, bat, ripgrep, zoxide)
 - Shell enhancements
 
 ### pi-agent Module
@@ -145,8 +147,8 @@ ALPINE_ARCH=x86_64
 BUILD_DIR=/tmp/alpine-wsl-build
 CACHE_DIR=$HOME/.cache/alpine-wsl
 
-# Module selection
-DEFAULT_MODULES=base,podman,pi-agent,development
+# Module selection (default)
+DEFAULT_MODULES=base,pi-agent
 ```
 
 ### Custom Modules

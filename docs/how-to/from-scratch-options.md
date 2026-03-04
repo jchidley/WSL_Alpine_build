@@ -21,7 +21,7 @@ That builder then imports the target Alpine distro via `wsl.exe`.
 
 ### Option A: Debian/Ubuntu builder
 ```powershell
-wsl --install -d Debian
+wsl.exe --install -d Debian
 ```
 
 Inside builder:
@@ -36,7 +36,7 @@ cd WSL_Alpine_build
 
 ### Option B: Arch Linux builder (official)
 ```powershell
-wsl --install -d archlinux
+wsl.exe --install -d archlinux
 ```
 
 Inside builder:
@@ -49,8 +49,8 @@ git clone https://github.com/jchidley/WSL_Alpine_build.git
 cd WSL_Alpine_build
 ```
 
-### Option C: `wsl --install -d Alpine`
-On this machine, Alpine is not in `wsl --list --online`, so use Option A or B as the builder and generate Alpine targets with this repo.
+### Option C: `wsl.exe --install -d Alpine`
+On this machine, Alpine is not in `wsl.exe --list --online`, so use Option A or B as the builder and generate Alpine targets with this repo.
 
 ## 3) Build a pi-ready Alpine target
 From the chosen builder distro:
@@ -59,15 +59,12 @@ cd ~/tools/WSL_Alpine_build
 ./wsl-alpine build --name alpine-pi-agent --modules base,pi-agent
 ```
 
-First boot setup:
-```powershell
-wsl -d alpine-pi-agent -u root -- /etc/oobe.sh
-```
-
 Verify:
 ```powershell
-wsl -d alpine-pi-agent -- sh -lc "pi --version"
+wsl.exe -d alpine-pi-agent -- sh -lc "pi --version"
 ```
+
+Note: `./wsl-alpine build` now finalizes OOBE automatically after import.
 
 ## 4) Compare Debian vs Arch builder experience (optional)
 Run identical builds from each builder and compare wall-clock time.
@@ -88,7 +85,7 @@ WSL VHDX files grow and may not automatically shrink.
 
 PowerShell (Admin):
 ```powershell
-wsl --shutdown
+wsl.exe --shutdown
 diskpart
 ```
 
@@ -108,7 +105,7 @@ Verify:
 
 ## Results from this machine
 
-### Builder baseline RAM (`free -h` after `wsl --shutdown`)
+### Builder baseline RAM (`free -h` after `wsl.exe --shutdown`)
 - Arch: ~563 MiB used
 - Debian-fresh: ~540 MiB used
 
@@ -128,5 +125,5 @@ Verify:
 
 ## Notes
 - Keep active Linux work on `~/...` (ext4), not `/mnt/c/...`.
-- Use `wsl --shutdown` before repeatable timing or compaction.
+- Use `wsl.exe --shutdown` before repeatable timing or compaction.
 - For `pi` credentials, choose one source-of-truth model (builder-side key store vs target-side auth/env).

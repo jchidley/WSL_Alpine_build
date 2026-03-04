@@ -7,11 +7,7 @@ This guide shows the shortest path to build, use, and delete a target workspace.
 - Required tools installed (`wget`, `tar`, `gzip`, `fakeroot`, etc.)
 
 ## 1) Inspect target definition
-Use the provided example target:
-
-```bash
-cat targets/podman-dev.yaml
-```
+Use the provided example target: `targets/podman-dev.yaml`
 
 ## 2) Build/import target workspace
 ```bash
@@ -34,8 +30,8 @@ This creates/imports a WSL distro named `wslw-podman-dev`.
 From Windows terminal, run the distro directly:
 
 ```powershell
-wsl -d wslw-podman-dev
-wsl -d wslw-podman-dev -- podman info
+wsl.exe -d wslw-podman-dev
+wsl.exe -d wslw-podman-dev -- podman info
 ```
 
 ## 6) Remove the workspace when done

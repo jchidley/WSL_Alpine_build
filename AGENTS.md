@@ -14,8 +14,10 @@ Build **minimal, disposable Alpine WSL2 environments** with a **Podman-first** w
 | Task | Command |
 |---|---|
 | Show help | `./wsl-alpine help` |
-| Build distro | `./wsl-alpine build --name <name> --modules base,podman,pi-agent,development` |
+| Build distro (default modules) | `./wsl-alpine build --name <name>` |
+| Build distro (explicit modules) | `./wsl-alpine build --name <name> --modules base,pi-agent` |
 | Build all modules | `./wsl-alpine build --modules all` |
+| Import existing archive | `./wsl-alpine install --name <name> <archive.tar.gz>` |
 | Workspace up from target | `./wsl-alpine up --target <target-or-file>` |
 | Open shell in target | `./wsl-alpine shell <target>` |
 | Run command in target | `./wsl-alpine exec <target> -- <cmd...>` |
@@ -23,8 +25,7 @@ Build **minimal, disposable Alpine WSL2 environments** with a **Podman-first** w
 | Cleanup old targets | `./wsl-alpine gc` |
 | List modules | `./wsl-alpine module list` |
 | Module info | `./wsl-alpine module info <module>` |
-| Run all tests | `./wsl-alpine test` |
-| Unit tests only | `./wsl-alpine test --unit` |
+| Run standard tests | `./wsl-alpine test` |
 
 ## Modules (current)
 - `base` (required)
@@ -48,8 +49,8 @@ Build **minimal, disposable Alpine WSL2 environments** with a **Podman-first** w
 
 ## From-scratch workflow notes
 - A fresh Windows setup still requires one Linux **builder distro** (e.g. `Debian` or `archlinux`) to run `./wsl-alpine ...`.
-- Do not assume `wsl --install -d Alpine` exists in the online catalog.
-- For timing comparisons across builders: use identical modules (`base,pi-agent`), run `wsl --shutdown` between runs, and compare wall-clock times only.
+- Do not assume `wsl.exe --install -d Alpine` exists in the online catalog.
+- For timing comparisons across builders: use identical modules (`base,pi-agent`), run `wsl.exe --shutdown` between runs, and compare wall-clock times only.
 
 ## Documentation discipline
 - Human-facing docs (`docs/how-to/*`, README, explanations): follow Diátaxis (use human-docs skill).
